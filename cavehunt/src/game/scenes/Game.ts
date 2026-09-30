@@ -6,6 +6,7 @@ import { ChunkManager } from '../world/ChunkManager';
 import { destroyRenderedChunk, renderChunk, setRenderedItems, type RenderedChunk } from '../world/renderChunk';
 import { AnimalDisplay } from '../world/AnimalDisplay';
 import { WorldConnection } from '../network/WorldConnection';
+import { serverEndpoint } from '../network/serverEndpoint';
 import { NICKNAME_PATTERN, type ChunkSnapshot, type InitialWorld, type PlayerSnapshot, type InventoryEntry, type ItemUpdate } from '../../../../shared/src/protocol.ts';
 import { ITEMS } from '../../../../shared/src/items.ts';
 import { pixelToChunk } from '../../../../shared/src/coordinates.ts';
@@ -18,24 +19,6 @@ interface LoadedChunk {
 }
 
 const CAMERA_FOLLOW_LERP = 0.1;
-const DEFAULT_SERVER_PORT = '2567';
-
-function serverEndpoint(address: string): string | undefined
-{
-    try
-    {
-        const url = new URL(/^https?:\/\//i.test(address) ? address : `http://${address}`);
-        if (!url.hostname || !['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.pathname !== '/' || url.search || url.hash)
-            return undefined;
-        if (!url.port) url.port = DEFAULT_SERVER_PORT;
-        return url.origin;
-    }
-    catch
-    {
-        return undefined;
-    }
-}
-
 export class Game extends Scene
 {
     private readonly players = new Map<string, Player>();
