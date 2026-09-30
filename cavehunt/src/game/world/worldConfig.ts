@@ -1,4 +1,4 @@
-export const GENERATOR_VERSION = 6;
+export const GENERATOR_VERSION = 8;
 export const WORLD_SEED = 'cavehunt';
 
 export interface WorldConfig {

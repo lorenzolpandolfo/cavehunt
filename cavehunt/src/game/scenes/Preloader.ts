@@ -14,6 +14,9 @@ export class Preloader extends Scene
         this.load.image('grass', 'grass.png');
         this.load.image('biome-objects', 'biome-objects.png');
         this.load.image('water', 'water.png');
+        this.load.setPath('assets/mobs');
+        this.load.spritesheet('cow', 'cow.png', { frameWidth: 32, frameHeight: 32 });
+        this.load.spritesheet('chicken', 'chicken.png', { frameWidth: 16, frameHeight: 16 });
     }
 
     create ()
