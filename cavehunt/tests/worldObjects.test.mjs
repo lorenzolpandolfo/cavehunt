@@ -6,7 +6,7 @@ import { generateChunkObjects, generateWorldObject } from '../src/game/world/wor
 import { OBJECT_FRAMES } from '../src/game/world/objectFrames.ts';
 import { readFileSync } from 'node:fs';
 
-test('tree and decoration frames fit the source atlas', () => {
+test('object types use the corrected frames within the source atlas', () => {
     const atlas = readFileSync(new URL('../public/assets/sprout-lands/biome-objects.png', import.meta.url));
     const width = atlas.readUInt32BE(16);
     const height = atlas.readUInt32BE(20);
@@ -21,11 +21,17 @@ test('tree and decoration frames fit the source atlas', () => {
         }
     }
 
-    assert.deepEqual(OBJECT_FRAMES.tree.map(frame => [frame.x, frame.width, frame.height]),
-        [[16, 32, 32], [48, 32, 32]]);
+    assert.deepEqual(Object.keys(OBJECT_FRAMES).sort(), [
+        'tree', 'appleTree', 'rock', 'grass', 'redMushroom', 'purpleMushroom',
+        'strawberryBush', 'bush', 'yellowFlower', 'pinkFlower', 'blueFlower', 'waterLily'
+    ].sort());
+    assert.deepEqual(OBJECT_FRAMES.tree.map(frame => [frame.x, frame.y, frame.width, frame.height]),
+        [[16, 0, 32, 32], [16, 0, 32, 32]]);
+    assert.deepEqual(OBJECT_FRAMES.appleTree.map(frame => [frame.x, frame.y, frame.width, frame.height]),
+        [[48, 0, 32, 32], [48, 0, 32, 32]]);
     assert.deepEqual(OBJECT_FRAMES.strawberryBush[0],
         { x: 0, y: 48, width: 16, height: 16, bodyWidth: 12, bodyHeight: 8 });
-    assert.deepEqual(OBJECT_FRAMES.plainBush[0],
+    assert.deepEqual(OBJECT_FRAMES.bush[0],
         { x: 16, y: 48, width: 16, height: 16, bodyWidth: 12, bodyHeight: 8 });
     assert.ok(Object.values(OBJECT_FRAMES).flat().every(frame =>
         !(frame.y === 32 && (frame.x === 0 || frame.x === 16)) &&
@@ -56,30 +62,44 @@ test('objects have stable identities, cell spacing and a clear spawn', () => {
     }
 });
 
-test('forest cells contain more trees than plain cells in a broad sample', () => {
-    const counts = { forest: { trees: 0, cells: 0 }, plain: { trees: 0, cells: 0 } };
+test('forests favor trees and plains favor bushes and mushrooms', () => {
+    const counts = {
+        forest: { trees: 0, bushes: 0, mushrooms: 0, flowers: 0, objects: 0 },
+        plain: { trees: 0, bushes: 0, mushrooms: 0, flowers: 0, objects: 0 }
+    };
+    const treeTypes = new Set(['tree', 'appleTree']);
+    const bushTypes = new Set(['bush', 'strawberryBush']);
+    const mushroomTypes = new Set(['redMushroom', 'purpleMushroom']);
+    const flowerTypes = new Set(['yellowFlower', 'pinkFlower', 'blueFlower']);
     const types = new Set();
     const surfaces = new Set();
 
     for (let cellY = -64; cellY <= 64; cellY++) {
         for (let cellX = -64; cellX <= 64; cellX++) {
             const object = generateWorldObject(WORLD_CONFIG, cellX, cellY);
-            const x = cellX * 4 + 2;
-            const y = cellY * 4 + 2;
-            const biome = generateTerrainTile(WORLD_CONFIG, x, y).biome;
-            counts[biome].cells++;
-            if (object) types.add(object.type);
             if (object) {
-                const surface = generateTerrainTile(WORLD_CONFIG, object.x, object.y).surface;
-                assert.equal(surface, object.type === 'waterLily' ? 'water' : 'ground');
-                surfaces.add(surface);
+                types.add(object.type);
+                const terrain = generateTerrainTile(WORLD_CONFIG, object.x, object.y);
+                assert.equal(terrain.surface, object.type === 'waterLily' ? 'water' : 'ground');
+                surfaces.add(terrain.surface);
+
+                if (terrain.surface === 'ground') {
+                    const biomeCounts = counts[terrain.biome];
+                    biomeCounts.objects++;
+                    if (treeTypes.has(object.type)) biomeCounts.trees++;
+                    if (bushTypes.has(object.type)) biomeCounts.bushes++;
+                    if (mushroomTypes.has(object.type)) biomeCounts.mushrooms++;
+                    if (flowerTypes.has(object.type)) biomeCounts.flowers++;
+                }
             }
-            if (object?.type === 'tree') counts[biome].trees++;
         }
     }
 
-    assert.ok(counts.forest.cells > 0 && counts.plain.cells > 0);
-    assert.ok(counts.forest.trees / counts.forest.cells > counts.plain.trees / counts.plain.cells * 2);
+    assert.ok(counts.forest.objects > 0 && counts.plain.objects > 0);
+    assert.ok(counts.forest.trees > counts.forest.bushes + counts.forest.mushrooms);
+    assert.ok(counts.plain.bushes > counts.plain.flowers);
+    assert.ok(counts.plain.mushrooms > counts.plain.flowers);
+    assert.ok(counts.forest.trees / counts.forest.objects > counts.plain.trees / counts.plain.objects * 2);
     assert.deepEqual([...types].sort(), Object.keys(OBJECT_FRAMES).sort());
     assert.deepEqual([...surfaces].sort(), ['ground', 'water']);
 });

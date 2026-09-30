@@ -15,15 +15,16 @@ const VARIANT_SALT = 0x1f83d9ab;
 
 export type WorldObjectType =
   | "tree"
+  | "appleTree"
   | "rock"
-  | "smallRock"
+  | "grass"
+  | "redMushroom"
+  | "purpleMushroom"
   | "strawberryBush"
-  | "plainBush"
-  | "mediumBush"
-  | "smallBush"
-  | "flower"
-  | "plant"
-  | "mushroom"
+  | "bush"
+  | "yellowFlower"
+  | "pinkFlower"
+  | "blueFlower"
   | "waterLily";
 
 export interface WorldObject {
@@ -36,20 +37,30 @@ export interface WorldObject {
 
 function chooseType(value: number, biome: Biome): WorldObjectType | undefined {
   if (biome === "forest") {
-    if (value < 22) return "yellowFlower";
-    if (value < 30) return "rock";
-    if (value < 37) return "bush";
-    if (value < 86) return "tree";
-    if (value < 95) return "blueFlower";
-    return "redMushroom";
+    if (value < 42) return "tree";
+    if (value < 58) return "appleTree";
+    if (value < 67) return "bush";
+    if (value < 73) return "strawberryBush";
+    if (value < 79) return "rock";
+    if (value < 84) return "grass";
+    if (value < 88) return "redMushroom";
+    if (value < 91) return "purpleMushroom";
+    if (value < 95) return "yellowFlower";
+    if (value < 98) return "blueFlower";
+    return "pinkFlower";
   }
 
-  if (value < 4) return "tree";
-  if (value < 11) return "rock";
-  if (value < 13) return "strawberryBush";
-  if (value < 16) return "bush";
-  if (value < 58) return "pinkFlower";
-  if (value < 74) return "purpleMushroom";
+  if (value < 17) return "bush";
+  if (value < 29) return "strawberryBush";
+  if (value < 41) return "redMushroom";
+  if (value < 51) return "purpleMushroom";
+  if (value < 58) return "grass";
+  if (value < 62) return "yellowFlower";
+  if (value < 66) return "pinkFlower";
+  if (value < 68) return "blueFlower";
+  if (value < 71) return "rock";
+  if (value < 73) return "tree";
+  if (value < 74) return "appleTree";
   return undefined;
 }
 
