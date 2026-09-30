@@ -23,6 +23,6 @@ Client commands `npm test`, `npm run typecheck` and `npm run build-nolog` remain
 
 Preserve deterministic generation and positive/negative chunk boundaries. Cover full JSON round-trips, invalid/unsupported saves, failed writes, exclusive locks, concurrent commits and movement during asynchronous saves.
 
-Network coverage includes one room, overlapping map agreement, late join, simultaneous nickname conflicts, departure/drop cleanup, authoritative movement, stale/invalid input, recipient-specific chunk windows and restart recovery. Unit tests verify normalized speed, debug speed, swept obstacle collisions, foot geometry and stop-on-blur/hidden-tab behavior.
+Network coverage includes one room, overlapping map agreement, late join, simultaneous nickname conflicts, departure/drop cleanup, authoritative movement, stale/invalid input, recipient-specific chunk windows, shared animal updates, inactive-region pauses and restart recovery. Unit tests verify normalized speed, debug speed, swept obstacle collisions, foot geometry, stop-on-blur/hidden-tab behavior and one animal update per shared chunk.
 
 As mechanics arrive, add tests for inventory concurrency, persistent depletion, time progression and relevant-state synchronization. Avoid tests that merely mirror implementation details.

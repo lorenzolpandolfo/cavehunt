@@ -1,6 +1,6 @@
 # Cavehunt
 
-Cavehunt is a Phaser 4 client connected to a Node.js/TypeScript Colyseus server. One server process owns one persistent world and accepts multiple players (16 by default). Clients receive the map, global player presence and authoritative movement. Animals remain stationary; their simulation and other map events are later milestones.
+Cavehunt is a Phaser 4 client connected to a Node.js/TypeScript Colyseus server. One server process owns one persistent world and accepts multiple players (16 by default). Clients receive the map, global player presence and authoritative movement. Cows and chickens move on the server and are synchronized to nearby players; other map events are later milestones.
 
 ## Run locally
 
@@ -32,7 +32,7 @@ The client defaults to `http://localhost:2567`. For another machine, set `VITE_S
 | `MAX_PLAYERS` | `16` | Positive integer connection limit; not a measured capacity guarantee. |
 | `WORLD_FILE` | `server/data/world.json` | Save path; overrides are resolved against the process working directory. |
 
-The JSON contains save/generator versions, world ID, seed, full generated chunks, objects, animal state and characters keyed by normalized nickname. Unvisited regions do not occupy the file. Online presence is transient. Every admission commits its character and nearby chunks before exposing them. Movement is saved every two seconds, on departure and on normal shutdown. Characters recover their saved position on the next connection; abrupt termination can lose recent unsaved movement. Movement waits at chunk boundaries until new chunks have been persisted. A storage failure stops movement and reports an error; saving is retried on the autosave interval.
+The JSON contains save/generator versions, world ID, seed, full generated chunks, objects, animal state and characters keyed by normalized nickname. Unvisited regions do not occupy the file. Online presence is transient. Every admission commits its character and nearby chunks before exposing them. Player and animal movement are saved every two seconds, on departure and on normal shutdown. Characters recover their saved position on the next connection; abrupt termination can lose recent unsaved movement. Movement waits at chunk boundaries until new chunks have been persisted. A storage failure stops movement and reports an error; saving is retried on the autosave interval.
 
 Writes are serialized and replace the JSON atomically through a temporary file in the same directory. Only one process can hold `world.json.lock`. Invalid/incompatible saves stop startup without replacing the file. After an ungraceful process termination, verify that the PID recorded in the lock is no longer running before manually removing that lock. Do not remove a live process's lock. Runtime data and temporary files are ignored by Git.
 
@@ -49,6 +49,6 @@ npm run build
 npm start -w @cavehunt/server
 ```
 
-Tests include procedural generation, JSON persistence, concurrent admission, nickname validation, movement/collisions, input timeout, real Colyseus clients, region streaming, disconnects and restart recovery. Network tests bind an ephemeral loopback port. No manual browser gameplay is required. Client commands such as `npm run dev-nolog`, `npm test` and `npm run build-nolog` remain available inside `cavehunt/`.
+Tests include procedural generation, JSON persistence, concurrent admission, nickname validation, movement/collisions, synchronized animals, inactive-region pauses, real Colyseus clients, disconnects and restart recovery. Network tests bind an ephemeral loopback port. No manual browser gameplay is required. Client commands such as `npm run dev-nolog`, `npm test` and `npm run build-nolog` remain available inside `cavehunt/`.
 
 See [architecture](.agents/architecture.md), [testing](.agents/testing.md), [roadmap](docs/roadmap.md), and [asset credits](cavehunt/public/assets/sprout-lands/ASSET_CREDITS.md).

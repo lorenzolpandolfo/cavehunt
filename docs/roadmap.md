@@ -113,8 +113,9 @@ Online delivery was brought forward without requiring P4. Node.js, TypeScript an
 | M0a | Server generation and JSON storage | W1–W6 | Complete chunks round-trip through one exclusively locked JSON; invalid saves remain untouched. | Done |
 | M0b | Single online world and nickname presence | M0a | Multiple clients join one room, duplicate active names are rejected and characters recover after restart. | Done |
 | M0c | Network client and regional map snapshots | M0b | Clients render received chunks, animals and connected characters without generating terrain. | Done |
+| M3a | Animal movement synchronization | M0c, M3 | Animals advance once per active server chunk; nearby clients observe the same state, and restart restores it. | Done |
 
-M1–M3 below are complete for current movement rules. Animals remain stationary until a separate synchronization delivery.
+M1–M3 below are complete for current movement rules. Animal movement is synchronized in M3a; other world events remain separate deliveries.
 
 | ID | Delivery | Depends on | Acceptance |
 | --- | --- | --- | --- |

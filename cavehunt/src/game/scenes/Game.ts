@@ -44,6 +44,7 @@ export class Game extends Scene
     {
         this.controls?.update(deltaMs);
         for (const player of this.players.values()) player.render(deltaMs);
+        this.chunks?.forEachLoaded(chunk => chunk.animals.render(deltaMs));
     }
 
     private showLogin(message = 'Enter a nickname to join the world.'): void
@@ -86,6 +87,7 @@ export class Game extends Scene
                 world: world => this.loadWorld(world),
                 players: players => this.updatePlayers(players),
                 chunks: window => this.chunks?.apply(window.chunks),
+                animals: update => this.chunks?.get(update.x, update.y)?.animals.apply(update.animals),
                 disconnected: reason => {
                     this.connection = undefined;
                     this.clearWorld();

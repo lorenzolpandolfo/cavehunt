@@ -1,6 +1,6 @@
 # Game Design Vision
 
-This document primarily describes planned functionality, not implemented features. The current online game provides a server-generated surface with forests, plains, natural objects, walkable rivers and lakes, stationary cows and chickens, streamed chunks and synchronized player movement. The server persists generated chunks and characters in one JSON file. See [architecture.md](architecture.md) for the current technical state and [the roadmap](../docs/roadmap.md) for incremental delivery.
+This document primarily describes planned functionality, not implemented features. The current online game provides a server-generated surface with forests, plains, natural objects, walkable rivers and lakes, server-simulated cows and chickens, streamed chunks and synchronized player movement. The server persists generated chunks and characters in one JSON file. See [architecture.md](architecture.md) for the current technical state and [the roadmap](../docs/roadmap.md) for incremental delivery.
 
 ## Experience and core loop
 
@@ -36,6 +36,6 @@ Farming includes soil preparation, seeds, planting, growth, water requirements, 
 
 ## Persistent and shared worlds
 
-Online connection, shared player movement and JSON persistence of generated chunks/characters are implemented. Characters are recovered by nickname without passwords. Shared combat, construction, resources, animal simulation, caves and progression remain planned.
+Online connection, shared player movement and JSON persistence of generated chunks/characters are implemented. Characters are recovered by nickname without passwords. Shared animal movement is synchronized. Combat, construction, resources, caves and progression remain planned.
 
 The first playable milestone is a procedural forest where the player can walk, gather resources, and discover cave entrances. The initial MVP also includes a basic day/night cycle and saving/loading. Advanced systems should arrive incrementally through the roadmap.

@@ -36,6 +36,16 @@ export class ChunkManager<T>
         return [...this.loaded.keys()];
     }
 
+    get(x: number, y: number): T | undefined
+    {
+        return this.loaded.get(chunkKey(x, y));
+    }
+
+    forEachLoaded(callback: (chunk: T) => void): void
+    {
+        for (const chunk of this.loaded.values()) callback(chunk);
+    }
+
     destroy(): void
     {
         for (const chunk of this.loaded.values()) this.destroyChunk(chunk);

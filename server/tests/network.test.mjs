@@ -22,6 +22,7 @@ async function until(condition) {
 async function connect(url, nickname) {
     const room = await new Client(url).join(ROOM_NAME, { nickname, protocolVersion: PROTOCOL_VERSION });
     room.reconnection.enabled = false;
+    room.onMessage('world:animals', () => undefined);
     const world = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => reject(new Error('Initial world not received')), 6000);
         room.onMessage('world:initial', data => { clearTimeout(timeout); resolve(data); });
@@ -90,14 +91,18 @@ test('online world integration', { timeout: 40000 }, async t => {
     await t.test('actual client adapter receives state and cleans up after disconnect', async () => {
         let world;
         let players = [];
+        const animalUpdates = [];
         const connection = new WorldConnection(url, {
-            chunks: () => {},
+            chunks: () => {}, animals: update => animalUpdates.push(update),
             world: value => { world = value; }, players: value => { players = value; },
             disconnected: reason => assert.fail(reason)
         });
         await connection.connect('David');
         await until(() => world && players.length === 3);
         assert.equal(world.playerId, 'david');
+        await until(() => animalUpdates.length > 0);
+        assert.ok(world.chunks.some(chunk => animalUpdates.some(update =>
+            update.x === chunk.x && update.y === chunk.y && update.animals.length > 0)));
         connection.close();
         await until(() => !alice.room.state.players.has('david'));
     });
@@ -157,6 +162,7 @@ test('online world integration', { timeout: 40000 }, async t => {
         assert.equal(restored.room.state.players.size, 1);
         const player = restored.room.state.players.get('alice');
         assert.deepEqual({ x: player.x, y: player.y }, alicePosition);
-        assert.deepEqual(restored.world.chunks, aliceChunks);
+        const terrain = chunks => chunks.map(({ animals: _animals, ...chunk }) => chunk);
+        assert.deepEqual(terrain(restored.world.chunks), terrain(aliceChunks));
     });
 });

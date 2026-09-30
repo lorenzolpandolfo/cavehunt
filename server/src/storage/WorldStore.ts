@@ -3,9 +3,9 @@ import { mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { type FileHandle } from 'node:fs/promises';
 import { CHUNK_SIZE, TILE_SIZE, chunkKey, pixelToChunk } from '../../../shared/src/coordinates.ts';
-import { type ChunkSnapshot, type PlayerData, PROTOCOL_VERSION, type WorldMetadata } from '../../../shared/src/protocol.ts';
+import { type AnimalMotion, type AnimalUpdate, type ChunkSnapshot, type PlayerData, PROTOCOL_VERSION, type WorldMetadata } from '../../../shared/src/protocol.ts';
 import { generateChunk } from '../world/chunk.ts';
-import { generateChunkAnimals } from '../world/animals.ts';
+import { advanceAnimal, generateChunkAnimals } from '../world/animals.ts';
 import { getSurface } from '../world/surface.ts';
 import { generateChunkObjects } from '../world/worldObjects.ts';
 import { WORLD_CONFIG } from '../world/worldConfig.ts';
@@ -111,6 +111,43 @@ export class WorldStore
     chunksFor(player: PlayerData): ChunkSnapshot[]
     {
         return this.window(player).map(({ x, y }) => this.data.chunks[chunkKey(x, y)]);
+    }
+
+    advanceAnimals(activeChunkKeys: ReadonlySet<string>, deltaMs: number): Set<string>
+    {
+        if (this.closing) throw new Error('World is shutting down');
+        const changed = new Set<string>();
+        let advanced = false;
+        for (const key of activeChunkKeys)
+        {
+            const chunk = Object.hasOwn(this.data.chunks, key) ? this.data.chunks[key] : undefined;
+            if (!chunk) continue;
+            for (const animal of chunk.animals)
+            {
+                const { x, y, phase, direction } = animal;
+                advanceAnimal(this.data.config, animal, deltaMs);
+                advanced = true;
+                if (animal.x !== x || animal.y !== y || animal.phase !== phase || animal.direction !== direction)
+                {
+                    changed.add(key);
+                }
+            }
+        }
+        if (advanced)
+        {
+            this.revision++;
+            this.dirty = true;
+        }
+        return changed;
+    }
+
+    animalUpdate(key: string): AnimalUpdate | undefined
+    {
+        const chunk = Object.hasOwn(this.data.chunks, key) ? this.data.chunks[key] : undefined;
+        if (!chunk) return undefined;
+        const animals: AnimalMotion[] = chunk.animals.map(({ id, x, y, phase, direction }) =>
+            ({ id, x, y, phase, direction }));
+        return { x: chunk.x, y: chunk.y, animals };
     }
 
     hasWindow(player: Pick<PlayerData, 'x' | 'y'>): boolean

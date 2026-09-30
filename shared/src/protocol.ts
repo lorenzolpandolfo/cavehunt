@@ -1,6 +1,6 @@
 import { type Direction } from './movement.ts';
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 export const ROOM_NAME = 'world';
 export const NICKNAME_PATTERN = /^[A-Za-z0-9_-]{3,24}$/;
 
@@ -88,4 +88,12 @@ export interface PlayerSnapshot extends PlayerData {
 
 export interface ChunkWindow {
     chunks: ChunkSnapshot[];
+}
+
+export type AnimalMotion = Pick<AnimalState, 'id' | 'x' | 'y' | 'phase' | 'direction'>;
+
+export interface AnimalUpdate {
+    x: number;
+    y: number;
+    animals: AnimalMotion[];
 }

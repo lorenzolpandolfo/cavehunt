@@ -18,6 +18,7 @@ const movementCommand = z.object({
     sequence: z.number().int().nonnegative().safe()
 }).strict();
 const AUTOSAVE_MS = 2000;
+const ANIMAL_UPDATE_MS = 100;
 const MAX_CATCHUP_MS = 250;
 
 export function createWorldRoom(store: WorldStore, maxPlayers: number)
@@ -32,7 +33,9 @@ export function createWorldRoom(store: WorldStore, maxPlayers: number)
         private readonly movementInputs = new Map<string, { command: MovementCommand; receivedAt: number }>();
         private readonly loading = new Set<string>();
         private readonly obstacles = new Map<string, Rectangle[]>();
+        private readonly pendingAnimalChunks = new Set<string>();
         private elapsed = 0;
+        private animalUpdateElapsed = 0;
         private suspended = false;
         private saving = false;
 
@@ -168,6 +171,41 @@ export function createWorldRoom(store: WorldStore, maxPlayers: number)
                     this.windows.set(client.sessionId, center);
                 }
             }
+            this.advanceAnimals();
+        }
+
+        private advanceAnimals(): void
+        {
+            const active = new Set<string>();
+            for (const client of this.clients)
+            {
+                const id = this.sessions.get(client.sessionId);
+                const player = id ? this.state.players.get(id) : undefined;
+                if (!player || !this.windows.has(client.sessionId)) continue;
+                for (const chunk of store.chunksFor(player)) active.add(chunkKey(chunk.x, chunk.y));
+            }
+            for (const key of store.advanceAnimals(active, SIMULATION_STEP_MS)) this.pendingAnimalChunks.add(key);
+            this.animalUpdateElapsed += SIMULATION_STEP_MS;
+            if (this.animalUpdateElapsed < ANIMAL_UPDATE_MS) return;
+            this.animalUpdateElapsed = 0;
+            if (this.pendingAnimalChunks.size === 0) return;
+
+            const updates = new Map([...this.pendingAnimalChunks].flatMap(key => {
+                const update = store.animalUpdate(key);
+                return update ? [[key, update] as const] : [];
+            }));
+            for (const client of this.clients)
+            {
+                const id = this.sessions.get(client.sessionId);
+                const player = id ? this.state.players.get(id) : undefined;
+                if (!player || !this.windows.has(client.sessionId)) continue;
+                for (const chunk of store.chunksFor(player))
+                {
+                    const update = updates.get(chunkKey(chunk.x, chunk.y));
+                    if (update) client.send('world:animals', update);
+                }
+            }
+            this.pendingAnimalChunks.clear();
         }
 
         private center(player: { x: number; y: number }): string

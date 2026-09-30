@@ -1,6 +1,6 @@
 import { type MovementIntent } from '../../../../shared/src/movement.ts';
 import { Client, type Room } from '@colyseus/sdk';
-import { ROOM_NAME, PROTOCOL_VERSION, type InitialWorld, type PlayerSnapshot, type ChunkWindow } from '../../../../shared/src/protocol.ts';
+import { ROOM_NAME, PROTOCOL_VERSION, type InitialWorld, type PlayerSnapshot, type ChunkWindow, type AnimalUpdate } from '../../../../shared/src/protocol.ts';
 
 interface NetworkState {
     players: Map<string, PlayerSnapshot>;
@@ -11,6 +11,7 @@ type NetworkRoom = Room<unknown, NetworkState>;
 export interface WorldConnectionEvents {
     world: (world: InitialWorld) => void;
     chunks: (window: ChunkWindow) => void;
+    animals: (update: AnimalUpdate) => void;
     players: (players: readonly PlayerSnapshot[]) => void;
     disconnected: (message: string) => void;
 }
@@ -68,6 +69,9 @@ export class WorldConnection
             }));
             this.dispose.push(room.onMessage<ChunkWindow>('world:chunks', window => {
                 if (this.initialReceived && !this.closed) this.events.chunks(window);
+            }));
+            this.dispose.push(room.onMessage<AnimalUpdate>('world:animals', update => {
+                if (this.initialReceived && !this.closed) this.events.animals(update);
             }));
             this.dispose.push(room.onMessage<string>('world:error', message => this.fail(message)));
             room.send('world:request');
