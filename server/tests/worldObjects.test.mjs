@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateChunk, tileToChunk } from '../src/game/world/chunk.ts';
-import { generateTerrainTile, WORLD_CONFIG } from '../src/game/world/terrain.ts';
-import { generateChunkObjects, generateWorldObject } from '../src/game/world/worldObjects.ts';
-import { OBJECT_FRAMES } from '../src/game/world/objectFrames.ts';
+import { generateChunk, tileToChunk } from '../src/world/chunk.ts';
+import { generateTerrainTile, WORLD_CONFIG } from '../src/world/terrain.ts';
+import { generateChunkObjects, generateWorldObject } from '../src/world/worldObjects.ts';
+import { OBJECT_FRAMES } from '../../cavehunt/src/game/world/objectFrames.ts';
 import { readFileSync } from 'node:fs';
 
 test('object types use the corrected frames within the source atlas', () => {
-    const atlas = readFileSync(new URL('../public/assets/sprout-lands/biome-objects.png', import.meta.url));
+    const atlas = readFileSync(new URL('../../cavehunt/public/assets/sprout-lands/biome-objects.png', import.meta.url));
     const width = atlas.readUInt32BE(16);
     const height = atlas.readUInt32BE(20);
     assert.equal(width, 144);

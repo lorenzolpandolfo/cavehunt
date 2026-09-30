@@ -1,74 +1,153 @@
 import { Scene } from 'phaser';
 import { Player } from '../player/Player';
-import { TILE_SIZE } from '../world/chunk';
+import { PlayerInput } from '../player/PlayerInput';
 import { ChunkManager } from '../world/ChunkManager';
 import { destroyRenderedChunk, renderChunk, type RenderedChunk } from '../world/renderChunk';
-import { WORLD_CONFIG } from '../world/terrain';
 import { AnimalDisplay } from '../world/AnimalDisplay';
-
-const CAMERA_ZOOM = 3;
+import { WorldConnection } from '../network/WorldConnection';
+import { NICKNAME_PATTERN, type InitialWorld, type PlayerSnapshot } from '../../../../shared/src/protocol.ts';
 
 interface LoadedChunk {
-    x: number;
-    y: number;
     rendered: RenderedChunk;
+    animals: AnimalDisplay;
 }
 
 export class Game extends Scene
 {
-    private player?: Player;
+    private readonly players = new Map<string, Player>();
     private chunks?: ChunkManager<LoadedChunk>;
-    private animals?: AnimalDisplay;
+    private connection?: WorldConnection;
+    private controls?: PlayerInput;
+    private form?: HTMLFormElement;
+    private ownId?: string;
+    private nickname = '';
 
-    constructor ()
+    constructor()
     {
         super('Game');
     }
 
-    create ()
+    create(): void
     {
-        const player = new Player(this, TILE_SIZE / 2, TILE_SIZE / 2);
-        this.player = player;
-        player.sprite.setVelocity(0, 0);
-        const animals = new AnimalDisplay(this, WORLD_CONFIG);
-        this.animals = animals;
-        this.chunks = new ChunkManager(
-            WORLD_CONFIG,
-            chunk => {
-                const rendered = renderChunk(this, player.sprite, chunk);
-                animals.load(chunk.x, chunk.y);
-                return { x: chunk.x, y: chunk.y, rendered };
-            },
-            chunk => {
-                animals.unload(chunk.x, chunk.y);
-                destroyRenderedChunk(chunk.rendered);
-            }
-        );
-        this.chunks.update(player.sprite.x, player.sprite.y);
-
-        const camera = this.cameras.main;
-        camera.setZoom(CAMERA_ZOOM);
-        camera.setRoundPixels(true);
-        camera.removeBounds();
-        camera.startFollow(player.sprite, true);
-
+        this.cameras.main.setZoom(3).setRoundPixels(true).removeBounds();
+        this.showLogin();
         this.events.once('shutdown', () => {
-            this.chunks?.destroy();
-            this.chunks = undefined;
-            this.animals?.destroy();
-            this.animals = undefined;
-            this.player?.destroy();
-            this.player = undefined;
+            this.connection?.close();
+            this.connection = undefined;
+            this.form?.remove();
+            this.form = undefined;
+            this.clearWorld();
         });
     }
 
-    update (_time: number, delta: number)
+    update(_time: number, deltaMs: number): void
     {
-        this.player?.update();
-        if (this.player)
+        this.controls?.update(deltaMs);
+        for (const player of this.players.values()) player.render(deltaMs);
+    }
+
+    private showLogin(message = 'Enter a nickname to join the world.'): void
+    {
+        this.form?.remove();
+        const form = document.createElement('form');
+        form.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;display:grid;gap:12px;padding:24px;background:#17351c;color:white;font:16px sans-serif;border-radius:8px;max-width:85vw;width:340px';
+        const title = document.createElement('strong');
+        title.textContent = 'Cavehunt Online';
+        const status = document.createElement('p');
+        status.textContent = message;
+        status.setAttribute('role', 'status');
+        const label = document.createElement('label');
+        label.textContent = 'Nickname';
+        const input = document.createElement('input');
+        input.name = 'nickname';
+        input.id = 'cavehunt-nickname';
+        input.required = true;
+        input.maxLength = 24;
+        input.value = this.nickname;
+        input.setAttribute('autocomplete', 'nickname');
+        label.htmlFor = input.id;
+        const submit = document.createElement('button');
+        submit.type = 'submit';
+        submit.textContent = 'Connect';
+        form.append(title, status, label, input, submit);
+        form.onsubmit = event => {
+            event.preventDefault();
+            const nickname = input.value.trim();
+            if (!NICKNAME_PATTERN.test(nickname))
+            {
+                status.textContent = 'Use 3–24 letters, numbers, underscores or hyphens.';
+                return;
+            }
+            this.nickname = nickname;
+            input.disabled = true;
+            submit.disabled = true;
+            status.textContent = 'Connecting and loading the world…';
+            this.connection = new WorldConnection(import.meta.env.VITE_SERVER_URL ?? 'http://localhost:2567', {
+                world: world => this.loadWorld(world),
+                players: players => this.updatePlayers(players),
+                chunks: window => this.chunks?.apply(window.chunks),
+                disconnected: reason => {
+                    this.connection = undefined;
+                    this.clearWorld();
+                    this.showLogin(reason);
+                }
+            });
+            void this.connection.connect(nickname);
+        };
+        document.body.append(form);
+        this.form = form;
+        input.focus();
+    }
+
+    private loadWorld(world: InitialWorld): void
+    {
+        this.ownId = world.playerId;
+        this.chunks = new ChunkManager(
+            chunk => ({ rendered: renderChunk(this, chunk), animals: new AnimalDisplay(this, chunk.animals) }),
+            chunk => { destroyRenderedChunk(chunk.rendered); chunk.animals.destroy(); }
+        );
+        this.chunks.apply(world.chunks);
+    }
+
+    private updatePlayers(players: readonly PlayerSnapshot[]): void
+    {
+        const present = new Set(players.map(player => player.id));
+        for (const [id, player] of this.players)
         {
-            this.chunks?.update(this.player.sprite.x, this.player.sprite.y);
+            if (!present.has(id))
+            {
+                player.destroy();
+                this.players.delete(id);
+            }
         }
-        this.animals?.update(delta);
+        for (const data of players)
+        {
+            const existing = this.players.get(data.id);
+            if (existing) existing.update(data);
+            else this.players.set(data.id, new Player(this, data));
+        }
+        const own = this.ownId ? this.players.get(this.ownId) : undefined;
+        if (own)
+        {
+            if (!this.controls)
+            {
+                this.controls = new PlayerInput(input => this.connection?.sendMovement(input));
+                this.cameras.main.startFollow(own.sprite, true);
+            }
+            this.form?.remove();
+            this.form = undefined;
+        }
+    }
+
+    private clearWorld(): void
+    {
+        this.controls?.destroy();
+        this.controls = undefined;
+        this.cameras.main.stopFollow();
+        this.chunks?.destroy();
+        this.chunks = undefined;
+        for (const player of this.players.values()) player.destroy();
+        this.players.clear();
+        this.ownId = undefined;
     }
 }

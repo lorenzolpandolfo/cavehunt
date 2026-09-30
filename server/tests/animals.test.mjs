@@ -1,16 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { advanceAnimal, AnimalPopulation, generateChunkAnimals, hasGroundFootprint } from '../src/game/world/animals.ts';
-import { TILE_SIZE } from '../src/game/world/chunk.ts';
-import { getSurface } from '../src/game/world/surface.ts';
-import { generateTerrainTile, WORLD_CONFIG } from '../src/game/world/terrain.ts';
-import { getRiverSurface } from '../src/game/world/river.ts';
-import { isLakeTile } from '../src/game/world/lake.ts';
+import { advanceAnimal, AnimalPopulation, generateChunkAnimals, hasGroundFootprint } from '../src/world/animals.ts';
+import { TILE_SIZE } from '../src/world/chunk.ts';
+import { getSurface } from '../src/world/surface.ts';
+import { generateTerrainTile, WORLD_CONFIG } from '../src/world/terrain.ts';
+import { getRiverSurface } from '../src/world/river.ts';
+import { isLakeTile } from '../src/world/lake.ts';
 
 test('animal sheets use the intended frame sizes', () => {
     for (const [type, width, height] of [['cow', 96, 64], ['chicken', 64, 32]]) {
-        const png = readFileSync(new URL(`../public/assets/mobs/${type}.png`, import.meta.url));
+        const png = readFileSync(new URL(`../../cavehunt/public/assets/mobs/${type}.png`, import.meta.url));
         assert.equal(png.readUInt32BE(16), width);
         assert.equal(png.readUInt32BE(20), height);
     }

@@ -2,6 +2,7 @@ const GRASS_TILE_INDEXES = [55, 56, 57, 60, 12, 12, 12, 12, 12, 12, 12];
 
 export function shoreTileIndex(
   isWater: (offsetX: number, offsetY: number) => boolean,
+  variant = 4,
 ): number {
   const top = isWater(0, -1);
   const bottom = isWater(0, 1);
@@ -28,6 +29,6 @@ export function shoreTileIndex(
   if (isWater(-1, 1)) return 17;
   if (isWater(1, 1)) return 16;
   return GRASS_TILE_INDEXES[
-    Math.floor(Math.random() * GRASS_TILE_INDEXES.length)
+    Math.abs(variant) % GRASS_TILE_INDEXES.length
   ];
 }

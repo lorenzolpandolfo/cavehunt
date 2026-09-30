@@ -1,4 +1,4 @@
-import { getSurface, type Surface } from './surface.ts';
+import { getSurface } from './surface.ts';
 import { hashWorld } from './worldHash.ts';
 import { type WorldConfig } from './worldConfig.ts';
 
@@ -11,15 +11,8 @@ const SPAWN_FOREST_RADIUS = 32;
 const SPAWN_FOREST_STRENGTH = 0.85;
 const BIOME_SALT = 0x6b39a5d1;
 
-export type Biome = 'forest' | 'plain';
-export type { Surface } from './surface.ts';
-
-export interface TerrainTile {
-    biome: Biome;
-    forestBlend: number;
-    surface: Surface;
-}
-
+import { type TerrainTile } from '../../../shared/src/protocol.ts';
+export type { Biome, TerrainTile, Surface } from '../../../shared/src/protocol.ts';
 
 function smoothStep(value: number): number
 {

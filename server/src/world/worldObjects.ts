@@ -13,27 +13,8 @@ const X_SALT = 0x493bdab5;
 const Y_SALT = 0xc15a66d3;
 const VARIANT_SALT = 0x1f83d9ab;
 
-export type WorldObjectType =
-  | "tree"
-  | "appleTree"
-  | "rock"
-  | "grass"
-  | "redMushroom"
-  | "purpleMushroom"
-  | "strawberryBush"
-  | "bush"
-  | "yellowFlower"
-  | "pinkFlower"
-  | "blueFlower"
-  | "waterLily";
-
-export interface WorldObject {
-  id: string;
-  type: WorldObjectType;
-  x: number;
-  y: number;
-  variant: number;
-}
+import { type WorldObject, type WorldObjectType } from '../../../shared/src/protocol.ts';
+export type { WorldObject, WorldObjectType } from '../../../shared/src/protocol.ts';
 
 function chooseType(value: number, biome: Biome): WorldObjectType | undefined {
   if (biome === "forest") {

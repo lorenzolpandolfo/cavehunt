@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateChunk, tileToAddress } from '../src/game/world/chunk.ts';
-import { generateLake, isLakeTile } from '../src/game/world/lake.ts';
-import { getSurface } from '../src/game/world/surface.ts';
-import { WORLD_CONFIG } from '../src/game/world/worldConfig.ts';
-import { generateWorldObject } from '../src/game/world/worldObjects.ts';
+import { generateChunk, tileToAddress } from '../src/world/chunk.ts';
+import { generateLake, isLakeTile } from '../src/world/lake.ts';
+import { getSurface } from '../src/world/surface.ts';
+import { WORLD_CONFIG } from '../src/world/worldConfig.ts';
+import { generateWorldObject } from '../src/world/worldObjects.ts';
 
 test('lakes repeat for a seed and vary with a different seed', () => {
     const sample = config => Array.from({ length: 49 }, (_, index) =>

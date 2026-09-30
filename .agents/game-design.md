@@ -1,6 +1,6 @@
 # Game Design Vision
 
-This document primarily describes planned functionality, not implemented features. The current game provides a seeded surface with forests, plains, natural objects, walkable rivers and lakes, roaming cows and chickens, chunk loading, and a controllable player. See [architecture.md](architecture.md) for the current technical state and [the roadmap](../docs/roadmap.md) for incremental delivery.
+This document primarily describes planned functionality, not implemented features. The current online game provides a server-generated surface with forests, plains, natural objects, walkable rivers and lakes, stationary cows and chickens, streamed chunks and synchronized player movement. The server persists generated chunks and characters in one JSON file. See [architecture.md](architecture.md) for the current technical state and [the roadmap](../docs/roadmap.md) for incremental delivery.
 
 ## Experience and core loop
 
@@ -12,11 +12,11 @@ Cavehunt is a 2D top-down survival RPG inspired by Stardew Valley, Terraria, and
 4. Defend players and structures against nighttime monster waves.
 5. Venture deeper with improved equipment and repeat the cycle.
 
-Players move freely in eight directions, including normalized diagonal movement. Holding Shift triples movement speed as a debug option. Building placement follows a grid even though movement is free.
+Players move in eight directions with normalized diagonals and server-authoritative obstacle collisions. Holding Shift requests triple movement speed as the existing debug option. Building placement follows a grid even though movement is free.
 
 ## Surface and caves
 
-The planned surface includes mountains, swamps, deserts, minerals, ruins, and cave entrances alongside the implemented forests, plains, rivers, lakes, vegetation, trees, rocks, cows, and chickens. Current water is walkable for players; animals stay on land. Nearby chunks load and distant chunks unload. The surface uses 16 by 16 pixel tiles and 32 by 32 tile chunks.
+The planned surface includes mountains, swamps, deserts, minerals, ruins, and cave entrances alongside the implemented forests, plains, rivers, lakes, vegetation, trees, rocks, cows, and chickens. Current water is walkable for players; animals stay on land. The server sends nearby chunks as players move; clients unload chunks outside their received window. The surface uses 16 by 16 pixel tiles and 32 by 32 tile chunks.
 
 Caves contain procedural rooms and corridors, enemies, minerals, chests, breakable containers, hidden areas, rare structures, and passages to deeper levels. Greater depth brings rarer resources, stronger enemies, distinct environments, and eventual bosses. Not every cave reaches every depth.
 
@@ -36,6 +36,6 @@ Farming includes soil preparation, seeds, planting, growth, water requirements, 
 
 ## Persistent and shared worlds
 
-Players should eventually save and load their worlds and progress, with basic persistence already included in the initial MVP. Online cooperative multiplayer will later allow shared exploration, combat, construction, resources, caves, and persistent progression.
+Online connection, shared player movement and JSON persistence of generated chunks/characters are implemented. Characters are recovered by nickname without passwords. Shared combat, construction, resources, animal simulation, caves and progression remain planned.
 
 The first playable milestone is a procedural forest where the player can walk, gather resources, and discover cave entrances. The initial MVP also includes a basic day/night cycle and saving/loading. Advanced systems should arrive incrementally through the roadmap.

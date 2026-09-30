@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateTerrainTile, GENERATOR_VERSION } from '../src/game/world/terrain.ts';
+import { generateTerrainTile, GENERATOR_VERSION } from '../src/world/terrain.ts';
 
 const config = { seed: 'world-a', generatorVersion: GENERATOR_VERSION };
 

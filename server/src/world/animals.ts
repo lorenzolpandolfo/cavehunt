@@ -19,21 +19,8 @@ const IDLE_SALT = 0x45cb178d;
 const WALK_SALT = 0x75138bca;
 const DIRECTION_SALT = 0x19d4ac67;
 
-export type AnimalType = 'cow' | 'chicken';
-export type AnimalPhase = 'idle' | 'walk';
-
-export interface AnimalState {
-    id: string;
-    type: AnimalType;
-    homeX: number;
-    homeY: number;
-    x: number;
-    y: number;
-    phase: AnimalPhase;
-    direction: number;
-    remainingMs: number;
-    decisionIndex: number;
-}
+import { type AnimalType, type AnimalState } from '../../../shared/src/protocol.ts';
+export type { AnimalType, AnimalPhase, AnimalState } from '../../../shared/src/protocol.ts';
 
 interface AnimalRules {
     halfWidth: number;

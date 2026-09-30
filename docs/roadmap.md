@@ -1,6 +1,6 @@
 # Development Roadmap
 
-The Foundation tasks F1–F5 and procedural world tasks W1–W6 are implemented. All other tasks below are planned. The current application is described in [architecture](../.agents/architecture.md); gameplay intent lives in [game design](../.agents/game-design.md).
+The Foundation tasks F1–F5 and procedural world tasks W1–W6 are implemented. The initial online milestone and authoritative player movement are also implemented (section 9); remaining gameplay tasks are planned. The current application is described in [architecture](../.agents/architecture.md); gameplay intent lives in [game design](../.agents/game-design.md).
 
 Each row is a focused delivery with an observable acceptance criterion. Dependencies refer to task IDs and are prerequisites, not permission to implement additional tasks. Implement only the requested scope. Mark completion only after implementation and applicable [validation](../.agents/testing.md).
 
@@ -106,13 +106,21 @@ These tasks are introduced before full persistence. Choose the storage implement
 
 ## 9. Multiplayer
 
-Plan networking architecture when entering this phase. An authoritative server is the intended direction; Node.js, TypeScript, and Colyseus are candidates, not installed infrastructure.
+Online delivery was brought forward without requiring P4. Node.js, TypeScript and Colyseus now provide one persistent world, full generated chunks in JSON, nickname admission and authoritative player movement. This does not complete future inventory, combat, map-event or full-progression persistence.
+
+| ID | Delivery | Depends on | Acceptance | Status |
+| --- | --- | --- | --- | --- |
+| M0a | Server generation and JSON storage | W1–W6 | Complete chunks round-trip through one exclusively locked JSON; invalid saves remain untouched. | Done |
+| M0b | Single online world and nickname presence | M0a | Multiple clients join one room, duplicate active names are rejected and characters recover after restart. | Done |
+| M0c | Network client and regional map snapshots | M0b | Clients render received chunks, animals and connected characters without generating terrain. | Done |
+
+M1–M3 below are complete for current movement rules. Animals remain stationary until a separate synchronization delivery.
 
 | ID | Delivery | Depends on | Acceptance |
 | --- | --- | --- | --- |
-| M1 | Server simulation boundary | P4 | Core rules can execute without Phaser rendering and be reused by a server. |
-| M2 | Cooperative world session | M1 | Two clients can join and leave the same authoritative world. |
-| M3 | Player movement synchronization | M2 | Clients observe one another moving; the server validates movement. |
+| M1 | Server simulation boundary | M0c | Done: fixed-step movement and obstacle collisions execute independently of Phaser. |
+| M2 | Cooperative world session | M0b | Done: clients join and leave one persistent authoritative world. |
+| M3 | Player movement synchronization | M1, M2 | Done: directional input, normalized speed, collisions, shared positions, chunk streaming and saved position recovery are validated. |
 | M4 | Combat and enemy synchronization | M3 | Clients observe consistent authoritative damage and enemy state. |
 | M5 | Gathering, inventory, and terrain synchronization | M3 | Concurrent collection does not duplicate resources or diverge world state. |
 | M6 | Building and progression synchronization | M5 | Structures, stations, research, and crops remain consistent across clients. |

@@ -3,9 +3,9 @@
 ## Project orientation
 
 Cavehunt is a 2D top-down survival RPG built with Phaser and TypeScript.
-The application lives in `cavehunt/`, below this repository root.
-Run application commands there; see the testing guide for exact commands.
-The application began as a Phaser template; its fixed-map Foundation is now implemented.
+The Phaser client lives in `cavehunt/`, the Colyseus server in `server/`, and shared contracts in `shared/`.
+Install dependencies and run workspace checks from the root; client commands still work from `cavehunt/`. See the testing guide for exact commands.
+The local Foundation has evolved into a persistent online world with authoritative player movement.
 Planned features in the design and roadmap are not evidence of implementation.
 
 ## Before making changes

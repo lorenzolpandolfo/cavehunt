@@ -1,0 +1,25 @@
+{
+  "name": "cavehunt-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "cavehunt",
+    "server",
+    "shared"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "test": "npm test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build -w @cavehunt/server && npm run build-nolog -w @cavehunt/client",
+    "dev:server": "npm run dev -w @cavehunt/server",
+    "dev:client": "npm run dev-nolog -w @cavehunt/client"
+  },
+  "devDependencies": {
+    "typescript": "~5.7.2",
+    "tsx": "^4.20.0",
+    "@types/node": "^22.0.0"
+  }
+}

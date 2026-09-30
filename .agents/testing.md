@@ -1,36 +1,28 @@
 # Testing and Validation
 
-## Current commands
+Install dependencies with `npm ci` at the repository root using Node.js 22.18 or newer.
 
-Run application commands from the repository's `cavehunt/` subdirectory, where `package.json` and the installed dependencies live.
+| Root command | Purpose |
+| --- | --- |
+| `npm test` | Client tests, server generation/storage/movement tests and real Colyseus integration tests. |
+| `npm run typecheck` | Strict TypeScript checks for client, server and shared contracts. |
+| `npm run build` | Server bundle and Vite production build without template telemetry. |
+| `git diff --check` | Whitespace check for tracked changes; inspect new files separately. |
 
-| Check | Command | Purpose |
-| --- | --- | --- |
-| TypeScript | `./node_modules/.bin/tsc --noEmit` | Check source types without emitting files. |
-| Unit tests | `npm test` | Run deterministic movement, biome, object, river, lake, coordinate, and chunk management checks with Node's built-in test runner. |
-| Production build | `npm run build-nolog` | Verify Vite bundling using the existing script without template telemetry. |
-
-There is currently no lint script. Vite builds do not replace the separate TypeScript check. Inspect the current scripts when working on a task, and run applicable existing tests.
+Client commands `npm test`, `npm run typecheck` and `npm run build-nolog` remain available inside `cavehunt/`. Server commands run inside `server/`. There is no lint script. Builds do not replace workspace typechecking.
 
 ## Match validation to the change
 
-- For source changes, run TypeScript and production build checks, plus relevant tests that exist.
-- For rendering, input, camera, collision, or UI changes, inspect the relevant code and run applicable automated checks. Playing the game or manually testing it in a browser is optional and only needed when explicitly requested.
-- For documentation-only changes, inspect paths, links, command accuracy, consistency, and whitespace. A gameplay test suite or build is not required solely for prose changes.
-- Run `git diff --check` from the repository root. Check new untracked documents separately because they are absent from the normal diff.
-- Fix failures caused by the change. Report pre-existing failures or unavailable checks clearly, with the command and reason.
-- Never claim a check passed unless it was actually executed. Distinguish automated results from code-based expectations.
+- Source changes require relevant tests, typechecking and production builds.
+- Network tests use real Colyseus SDK clients, ephemeral loopback ports and temporary JSON files. If a sandbox denies socket creation, rerun the check with local-network permission.
+- Validate rendering, input, camera and cleanup through source inspection and automated checks. Manual browser gameplay is optional and only required when explicitly requested.
+- Documentation-only changes require paths, links, commands, consistency and whitespace checks, not gameplay tests.
+- Fix failures caused by the change and report pre-existing or unavailable checks precisely. Never claim unexecuted checks passed.
 
-## Future gameplay tests
+## Behavioral coverage
 
-Prioritize deterministic unit tests of pure gameplay rules, separate from Phaser rendering where practical. Add a testing framework only when an implemented behavior creates a concrete testing need; do not install one for this harness.
+Preserve deterministic generation and positive/negative chunk boundaries. Cover full JSON round-trips, invalid/unsupported saves, failed writes, exclusive locks, concurrent commits and movement during asynchronous saves.
 
-Relevant examples, as the features arrive:
+Network coverage includes one room, overlapping map agreement, late join, simultaneous nickname conflicts, departure/drop cleanup, authoritative movement, stale/invalid input, recipient-specific chunk windows and restart recovery. Unit tests verify normalized speed, debug speed, swept obstacle collisions, foot geometry and stop-on-blur/hidden-tab behavior.
 
-- Movement calculations keep diagonal and cardinal speed equivalent.
-- Cave generation is reproducible for the same cave identity and depth.
-- Gathering updates resources and inventory correctly, including depleted targets.
-- Saved state restores player modifications over the generated world without respawning collected resources.
-- Time, crafting, combat, and progression rules respect their intended boundaries.
-
-Keep fixtures controlled and assertions about behavior rather than implementation details. Where practical, cover scene integration, restarts, and resource cleanup with automated tests or code inspection.
+As mechanics arrive, add tests for inventory concurrency, persistent depletion, time progression and relevant-state synchronization. Avoid tests that merely mirror implementation details.

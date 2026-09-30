@@ -2,12 +2,10 @@ import { Scene } from "phaser";
 import {
   CHUNK_PIXEL_SIZE,
   CHUNK_SIZE,
-  type ChunkData,
   TILE_SIZE,
-} from "./chunk.ts";
-import { type WorldObject, type WorldObjectType } from "./worldObjects.ts";
+} from "../../../../shared/src/coordinates.ts";
+import { type ChunkSnapshot, type WorldObject, type WorldObjectType } from "../../../../shared/src/protocol.ts";
 import { OBJECT_FRAMES } from "./objectFrames.ts";
-import { getSurface } from "./surface.ts";
 import { shoreTileIndex } from "./shore.ts";
 
 const GRASS_TILE_COUNT = 77;
@@ -18,19 +16,18 @@ const FOREST_COLOR = 0xb6d6a0;
 
 export interface RenderedChunk {
   tilemap: Phaser.Tilemaps.Tilemap;
-  obstacles: Phaser.Physics.Arcade.StaticGroup;
-  collider: Phaser.Physics.Arcade.Collider;
   decorations: Phaser.GameObjects.Image[];
 }
 
 function groundTileIndex(
-  chunk: ChunkData,
+  chunk: ChunkSnapshot,
   tileX: number,
   tileY: number,
 ): number {
   return shoreTileIndex(
     (offsetX, offsetY) =>
-      getSurface(chunk.config, tileX + offsetX, tileY + offsetY) === "water",
+      chunk.surfaces[tileY + offsetY + 1][tileX + offsetX + 1] === "water",
+    Math.imul(chunk.x * CHUNK_SIZE + tileX, 73856093) ^ Math.imul(chunk.y * CHUNK_SIZE + tileY, 19349663),
   );
 }
 
@@ -64,8 +61,7 @@ function groundTint(blend: number): number {
 
 export function renderChunk(
   scene: Scene,
-  player: Phaser.Physics.Arcade.Sprite,
-  chunk: ChunkData,
+  chunk: ChunkSnapshot,
 ): RenderedChunk {
   ensureObjectFrames(scene);
   const tilemap = scene.make.tilemap({
@@ -119,18 +115,15 @@ export function renderChunk(
   for (let y = 0; y < CHUNK_SIZE; y++) {
     for (let x = 0; x < CHUNK_SIZE; x++) {
       const tile = chunk.tiles[y][x];
-      const worldX = chunk.x * CHUNK_SIZE + x;
-      const worldY = chunk.y * CHUNK_SIZE + y;
       water.putTileAt(WATER_TILE_INDEX, x, y).tint = 0x90d6df;
 
       if (tile.surface === "ground") {
-        ground.putTileAt(groundTileIndex(chunk, worldX, worldY), x, y).tint =
+        ground.putTileAt(groundTileIndex(chunk, x, y), x, y).tint =
           groundTint(tile.forestBlend);
       }
     }
   }
 
-  const obstacles = scene.physics.add.staticGroup();
   const decorations: Phaser.GameObjects.Image[] = [];
 
   for (const object of chunk.objects) {
@@ -138,41 +131,19 @@ export function renderChunk(
     const x = (object.x + 0.5) * TILE_SIZE;
     const y = (object.y + 1) * TILE_SIZE;
 
-    if (frame.bodyWidth && frame.bodyHeight) {
-      const image = obstacles.create(
-        x,
-        y,
-        "biome-objects",
-        frameName(object),
-      ) as Phaser.Physics.Arcade.Image;
-      image.setOrigin(0.5, 1);
-      image.setDepth(y);
-      image.refreshBody();
-      const body = image.body as Phaser.Physics.Arcade.StaticBody;
-      body.setSize(frame.bodyWidth, frame.bodyHeight, false);
-      body.setOffset(
-        (frame.width - frame.bodyWidth) / 2,
-        frame.height - frame.bodyHeight,
-      );
-    } else {
-      const image = scene.add.image(x, y, "biome-objects", frameName(object));
-      image.setOrigin(0.5, 1);
-      image.setDepth(y - 1);
-      decorations.push(image);
-    }
+    const image = scene.add.image(x, y, "biome-objects", frameName(object));
+    image.setOrigin(0.5, 1);
+    image.setDepth(frame.bodyWidth ? y : y - 1);
+    decorations.push(image);
   }
 
   return {
     tilemap,
-    obstacles,
-    collider: scene.physics.add.collider(player, obstacles),
     decorations,
   };
 }
 
 export function destroyRenderedChunk(chunk: RenderedChunk): void {
-  chunk.collider.destroy();
-  chunk.obstacles.destroy(true);
 
   for (const decoration of chunk.decorations) {
     decoration.destroy();

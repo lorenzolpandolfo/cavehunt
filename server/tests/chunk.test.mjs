@@ -3,8 +3,8 @@ import test from 'node:test';
 import {
     addressToTile, CHUNK_SIZE, chunkKey, chunkToTile, generateChunk,
     pixelToChunk, pixelToTile, tileToAddress, tileToChunk, tileToPixel
-} from '../src/game/world/chunk.ts';
-import { generateTerrainTile, WORLD_CONFIG } from '../src/game/world/terrain.ts';
+} from '../src/world/chunk.ts';
+import { generateTerrainTile, WORLD_CONFIG } from '../src/world/terrain.ts';
 
 test('pixel and tile coordinates cross positive and negative boundaries consistently', () => {
     for (const tile of [-65, -33, -32, -31, -1, 0, 1, 31, 32, 33, 64]) {

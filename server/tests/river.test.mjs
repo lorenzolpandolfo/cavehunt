@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateChunk, tileToAddress } from '../src/game/world/chunk.ts';
-import { getRiverSection, getRiverSurface } from '../src/game/world/river.ts';
-import { generateTerrainTile, WORLD_CONFIG } from '../src/game/world/terrain.ts';
-import { generateWorldObject } from '../src/game/world/worldObjects.ts';
+import { generateChunk, tileToAddress } from '../src/world/chunk.ts';
+import { getRiverSection, getRiverSurface } from '../src/world/river.ts';
+import { generateTerrainTile, WORLD_CONFIG } from '../src/world/terrain.ts';
+import { generateWorldObject } from '../src/world/worldObjects.ts';
 
 test('river rows connect by sides and stay continuous across positive and negative chunks', () => {
     const chunks = new Map();

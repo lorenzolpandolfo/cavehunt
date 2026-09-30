@@ -1,8 +1,10 @@
-# Cavehunt
+# Cavehunt client
 
-The game currently has a seeded, unbounded surface with forests, plains, trees, rocks, shrubs, flowers, and walkable rivers and lakes. Nearby chunks load as an animated character moves in eight directions with a following camera and obstacle collisions. Hold Shift for triple movement speed while debugging. Change `WORLD_SEED` in `src/game/world/worldConfig.ts` to generate a different world. Run commands from this `cavehunt/` directory. The [project roadmap](../docs/roadmap.md) describes later gameplay milestones. Sprout Lands asset credits and terms are in [ASSET_CREDITS.md](public/assets/sprout-lands/ASSET_CREDITS.md).
+This Phaser client connects to the authoritative Colyseus server. It receives nearby map chunks, static animals, global player presence and authoritative movement. Use WASD/arrows to move and Shift for triple debug speed; the server resolves collisions and the client interpolates received positions.
 
-Use `npm run dev-nolog` to play locally, `./node_modules/.bin/tsc --noEmit` to check types, `npm test` to run deterministic tests, and `npm run build-nolog` to build.
+Install dependencies from the repository root with `npm ci`; start the server with `npm run dev:server` there. In this directory use `npm run dev-nolog`, `npm test`, `npm run typecheck` and `npm run build-nolog`. Configure `VITE_SERVER_URL` in `.env` for a server other than `http://localhost:2567`.
+
+See the [root README](../README.md) for server configuration, nickname identity and JSON persistence, and the [roadmap](../docs/roadmap.md) for subsequent milestones. Asset terms remain in [ASSET_CREDITS.md](public/assets/sprout-lands/ASSET_CREDITS.md).
 
 ## Template reference
 

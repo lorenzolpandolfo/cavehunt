@@ -2,49 +2,49 @@
 
 ## Current state
 
-Paths in this section are relative to the repository root.
+- npm workspaces share one root lockfile. `cavehunt/` is the Phaser 4/Vite client, `server/` is the Node.js/TypeScript Colyseus server, and `shared/` contains serializable contracts, coordinates and movement/collision definitions without Phaser dependencies.
+- Boot and Preloader load assets before Game shows a nickname form. MainMenu and GameOver remain unused template scenes. Runtime assets live in `cavehunt/public/assets/`; root `assets/` is not served by Vite.
+- The server owns one persistent world and one room, including when empty. The default capacity is 16, configurable via MAX_PLAYERS. Room creation attempts after bootstrap are rejected; clients join the existing room.
+- The world has seeded forests, plains, natural objects, walkable rivers/lakes and stationary cows/chickens. Player movement is server-authoritative and synchronized. Animal simulation, combat, gathering and construction are not active online systems.
 
-- The application is in `cavehunt/`, with its own `package.json` and dependencies.
-- The manifest declares Phaser 4.0.0, TypeScript ~5.7.2, and Vite ^6.3.1. Its legacy Phaser 3 description is not the dependency version.
-- `cavehunt/src/main.ts` starts the application; `cavehunt/src/game/main.ts` configures Phaser.
-- `cavehunt/src/game/scenes/` contains Boot, Preloader, and the active Game scene. MainMenu and GameOver remain as unused template files.
-- `cavehunt/public/assets/` holds assets served directly at runtime. The separate root `assets/` directory is not automatically served by Vite.
-- Vite configurations live in `cavehunt/vite/`. TypeScript uses strict mode with `strictPropertyInitialization` disabled.
-- The Foundation provides a controllable player, Arcade Physics collisions, and a following camera. The seeded, unbounded surface now has forest and plain regions, natural objects, walkable rivers and lakes, and roaming cows and chickens. Persistence and networking have not been implemented.
+## Ownership and data flow
 
-## Intended direction
-
-The following principles guide future changes; they do not describe existing modules or require a directory restructure.
-
-| Responsibility | Boundary |
+| Boundary | Responsibility |
 | --- | --- |
-| Rendering and scenes | Display state, collect input, and manage Phaser resources and scene transitions. |
-| Gameplay logic | Apply rules and resolve actions independently of Phaser when practical. |
-| World state | Own terrain, resources, player modifications, and persistent entity data. |
-| Entities | Represent identifiable actors or objects; keep their gameplay data distinct from display objects where useful. |
-| Systems | Coordinate a focused behavior over relevant state, without becoming a universal framework. |
-| UI | Present gameplay information and submit player intent through existing gameplay interfaces. |
+| Server world | Generate terrain/objects/animals and own persistent character/chunk data. |
+| Server storage | Validate saves, serialize commits, atomically replace JSON and hold an exclusive writer lock. |
+| Server movement | Fixed-step movement, input validation, collision resolution and authoritative positions. |
+| Colyseus adapter | Reserve nicknames, manage global presence, replicate movement and send relevant chunk windows. |
+| Shared contracts | Protocol/version, metadata, serializable state, coordinate conversions and common geometry. |
+| Client presentation | Connection UI, collect movement intent, interpolate received positions, animate sprites and release Phaser resources. |
 
-Keep pure calculations and rules testable without a scene or browser. Let Phaser adapters connect those rules to input, rendering, and collision handling. Arcade Physics is the initial intended collision approach; do not assume its configuration already exists.
+Keep persistent domain data separate from Colyseus Schema instances and Phaser objects. Use plain serializable state. Add gameplay systems for concrete implemented features, without mandatory ECS or speculative frameworks.
 
-Prefer reusable data definitions for items, resources, enemies, and recipes, with behavior composed where needed. Avoid a class for every item, deep hierarchies, mandatory ECS, or speculative shared packages. Add modules when an implemented feature benefits from them.
+Admission reserves a normalized nickname before asynchronous persistence. Existing characters are recovered by nickname without authentication; duplicate active nicknames are rejected. The Colyseus state contains connected players only. After installing handlers, clients request their initial world snapshot. On departure, presence is removed and position is flushed before releasing the nickname reservation.
+
+## Movement and interest
+
+- Clients send directional booleans, the Shift debug flag and a monotonic sequence. Never accept client positions, speed or elapsed time.
+- The server advances at 20 Hz with 50 ms fixed steps, capped catch-up and normalized diagonals. Normal speed is 80 pixels/second; Shift requests the existing triple-speed debug behavior. Input expires after 500 ms without refresh.
+- World obstacles use shared foot-aligned bodies and swept axis collision resolution. Water and decorative objects remain traversable. Player-player and animal-player collisions are not implemented.
+- Clients send changed input at most every 50 ms, refresh held input every 100 ms and send stop on blur/hidden tab. Characters interpolate authoritative positions over 50 ms without prediction or local physics.
+- Global presence and player positions go to every client. Each client receives a 3 by 3 chunk window centered on the authoritative position. Crossing a boundary updates only that client's window. New chunks must be persisted before movement enters their window; the character waits while this completes.
+- The network protocol is version 2. Incompatible clients are rejected. Disconnects return to the entry form without automatic reconnect or offline fallback.
 
 ## Deterministic generation
 
-- `world/worldConfig.ts` defines the current generator version and seed. Pure biome, object, river, and lake generation lives in `world/terrain.ts`, `world/worldObjects.ts`, `world/river.ts`, and `world/lake.ts`, using salted coordinate hashes from `world/worldHash.ts`. `world/surface.ts` combines water features. `world/objectFrames.ts` maps generated object types to atlas frames and collision sizes.
-- `world/chunk.ts` owns global tile and chunk coordinates; `world/ChunkManager.ts` manages the nearby window independently of Phaser. `world/renderChunk.ts` creates and releases Phaser layers, sprites, and colliders.
-- `world/animals.ts` generates groups of cows and chickens per chunk and advances their land-only movement. `world/AnimalDisplay.ts` owns their Phaser sprites and keeps animal state in memory when chunks unload.
-- Tiles are 16 pixels, chunks are 32 by 32 tiles, and the active window is 3 by 3 chunks. The spawn is the center of global tile (0, 0).
-- For a fixed generator version and configuration, the same seed must reconstruct the same initial world and caves.
-- Derive generation randomness from stable inputs such as seed, chunk coordinates, cave identity, and depth. Do not depend on wall-clock time or unseeded randomness.
-- Generate each chunk consistently regardless of visitation or loading order. Use stable spatial rules for features spanning chunk boundaries.
-- Separate generated terrain from subsequent player modifications. Loading or regenerating a chunk must not restore collected resources or erase changes.
-- Keep generation logic separate from rendering so reproducibility can be tested directly.
+`server/src/world/` owns generator version 8, seed configuration, hashes, biomes, objects, rivers, lakes and animal rules. Original generation tests live in `server/tests/`. A fixed configuration reproduces initial chunks independently of generation order; preserve IDs, salts and cross-chunk continuity.
 
-## Persistence and multiplayer readiness
+Tiles are 16 pixels and chunks contain 32 by 32 tiles. Initial spawns start around tile (0, 0), avoiding objects and connected players. Snapshots include terrain, objects, animals and a 34 by 34 surface grid with a one-tile border for shore rendering. The client does not generate terrain. Grass variants are coordinate-stable across clients.
 
-Prefer serializable gameplay state over storing Phaser objects. Reconstruct initial terrain from the seed and apply saved modifications; retain inventory, containers, constructions, farming, relevant entities, time, and progression as those features arrive.
+ChunkManager reconciles received windows idempotently. AnimalDisplay only renders snapshots; do not advance its retained server-side rules until animal synchronization is requested.
 
-When persistence is implemented, record enough generator and save-format information to detect incompatible saves. Do not silently reinterpret an old world using changed generation rules. Select storage and compatibility behavior in that feature's plan, not in this harness.
+## Persistence
 
-Future cooperative multiplayer should use an authoritative server that validates actions and synchronizes shared state. Keep rules reusable between singleplayer and server simulation where practical. Do not create networking, server packages, database integrations, or synchronization abstractions before their milestones require them.
+`server/data/world.json` stores save/generator versions, world ID, configuration, complete generated chunks and characters keyed by normalized nickname. Unvisited regions are generated lazily. Online presence and animation state are transient. Persist future map modifications in authoritative chunk records instead of regenerating over them.
+
+Admissions and newly generated chunks are serialized and committed atomically before publication. Movement updates memory immediately and flushes every two seconds, on departure and on normal shutdown; abrupt termination can lose recent unsaved movement. A save cannot overwrite movement that occurred while its disk write was in flight. A failed save suspends movement, reports the problem and retries on the autosave interval.
+
+Startup validates saves before listening. Invalid/incompatible files remain untouched. An exclusive neighboring lock allows one writer; see the root README for stale-lock recovery. Whole-file JSON grows with exploration and is a single-process design, not distributed storage. No automatic save migrations are implemented.
+
+Future animal/map simulation should advance only once for the union of relevant regions and replicate to interested clients. Combat, gathering, construction, caves and progression remain separate milestones.
