@@ -28,7 +28,13 @@ const itemId = z.enum(ITEM_IDS as [typeof ITEM_IDS[number], ...typeof ITEM_IDS[n
 const inventoryEntry = z.object({
     id: z.string().min(1), itemId, quantity: z.number().int().positive().safe()
 }).strict().refine(entry => ITEMS[entry.itemId].stackable || entry.quantity === 1);
-const groundItem = inventoryEntry.safeExtend({ x: coordinate, y: coordinate });
+const groundItem = inventoryEntry.safeExtend({
+    x: coordinate, y: coordinate,
+    droppedBy: z.string().regex(NICKNAME_PATTERN).optional(), ownerMustLeave: z.boolean().optional()
+}).superRefine((item, context) => {
+    if (item.ownerMustLeave && !item.droppedBy)
+        context.addIssue({ code: 'custom', message: 'Unowned item cannot block pickup' });
+});
 const chunk = z.object({
     x: integer, y: integer, config,
     tiles: z.array(z.array(tile).length(CHUNK_SIZE)).length(CHUNK_SIZE),

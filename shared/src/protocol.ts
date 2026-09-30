@@ -69,6 +69,8 @@ export interface InventoryEntry {
 export interface GroundItem extends InventoryEntry {
     x: number;
     y: number;
+    droppedBy?: string;
+    ownerMustLeave?: boolean;
 }
 
 export interface ItemUpdate {

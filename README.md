@@ -36,6 +36,8 @@ The JSON contains save/generator versions, world ID, seed, full generated chunks
 
 Writes are serialized and replace the JSON atomically through a temporary file in the same directory. Only one process can hold `world.json.lock`. Invalid/incompatible saves stop startup without replacing the file. After an ungraceful process termination, verify that the PID recorded in the lock is no longer running before manually removing that lock. Do not remove a live process's lock. Runtime data and temporary files are ignored by Git.
 
+Save version 2 includes player inventories and ground items. Version 1 test saves are not migrated; stop the server and remove an old test `world.json` before starting a new world. Three test items appear near the first character's spawn. Item pickup and drop are saved before their updates are sent to clients.
+
 The current generator is version 8 with seed `cavehunt`. Existing saves retain their configuration. Whole-file JSON persistence is intended for this initial single-process implementation; the file grows with explored chunks. No database, multiple rooms, accounts or automatic save migrations are included.
 
 ## Build and validation

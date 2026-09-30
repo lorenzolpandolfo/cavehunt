@@ -5,13 +5,13 @@
 - npm workspaces share one root lockfile. `cavehunt/` is the Phaser 4/Vite client, `server/` is the Node.js/TypeScript Colyseus server, and `shared/` contains serializable contracts, coordinates and movement/collision definitions without Phaser dependencies.
 - Boot and Preloader load assets before Game shows a nickname form. MainMenu and GameOver remain unused template scenes. Runtime assets live in `cavehunt/public/assets/`; root `assets/` is not served by Vite.
 - The server owns one persistent world and one room, including when empty. The default capacity is 16, configurable via MAX_PLAYERS. Room creation attempts after bootstrap are rejected; clients join the existing room.
-- The world has seeded forests, plains, natural objects, walkable rivers/lakes and server-simulated cows/chickens. Player and animal movement are server-authoritative and synchronized. Combat, gathering and construction are not active online systems.
+- The world has seeded forests, plains, natural objects, walkable rivers/lakes and server-simulated cows/chickens. Player and animal movement are server-authoritative and synchronized. Test items support automatic pickup, inventory stacking and dropping. Combat, gathering and construction are not active online systems.
 
 ## Ownership and data flow
 
 | Boundary | Responsibility |
 | --- | --- |
-| Server world | Generate terrain/objects/animals and own persistent character/chunk data. |
+| Server world | Generate terrain/objects/animals and own persistent character/chunk/item data. |
 | Server storage | Validate saves, serialize commits, atomically replace JSON and hold an exclusive writer lock. |
 | Server movement | Fixed-step player movement, input validation, collisions and one animal simulation per active chunk. |
 | Colyseus adapter | Reserve nicknames, manage global presence, replicate movement and send relevant chunk windows and animal updates. |
@@ -29,7 +29,7 @@ Admission reserves a normalized nickname before asynchronous persistence. Existi
 - World obstacles use shared foot-aligned bodies and swept axis collision resolution. Water and decorative objects remain traversable. Player-player and animal-player collisions are not implemented.
 - The client owns its local position using shared collision rules and loaded chunks, sends one position per 50 ms step and eases the local sprite toward its partial-step pose each frame. Regular server snapshots update remote characters only. Explicit corrections adjust the local player, smoothing small differences. Blur/hidden tab sends an immediate stop.
 - Global presence and validated player positions go to every client. Each client receives a 3 by 3 chunk window centered on the validated position. Crossing a boundary updates only that client's window. New chunks must be persisted before the server accepts movement into their window; the local player can move through loaded chunks while the server catches up.
-- The network protocol is version 5. Incompatible clients are rejected. Disconnects return to the entry form without automatic reconnect or offline fallback.
+- The network protocol is version 6. Incompatible clients are rejected. Disconnects return to the entry form without automatic reconnect or offline fallback.
 
 ## Deterministic generation
 
@@ -41,7 +41,7 @@ ChunkManager reconciles received windows idempotently. AnimalDisplay interpolate
 
 ## Persistence
 
-`server/data/world.json` stores save/generator versions, world ID, configuration, complete generated chunks and characters keyed by normalized nickname. Unvisited regions are generated lazily. Online presence and sprite animation state are transient; complete animal simulation state is persisted. Persist future map modifications in authoritative chunk records instead of regenerating over them.
+`server/data/world.json` stores save/generator versions, world ID, configuration, complete generated chunks with ground items, and characters with inventories keyed by normalized nickname. Unvisited regions are generated lazily. Online presence and sprite animation state are transient; complete animal simulation state is persisted. Three test items are placed near the first character's spawn in a new world. Item transfers are committed before publication, and drops remain unavailable to their owner until that character leaves pickup range. Save version 2 does not migrate version 1 files.
 
 Admissions and newly generated chunks are serialized and committed atomically before publication. Player and animal movement update memory immediately and flush every two seconds, on departure and on normal shutdown; abrupt termination can lose recent unsaved movement. A save cannot overwrite movement that occurred while its disk write was in flight. A failed save suspends movement, reports the problem and retries on the autosave interval.
 

@@ -96,6 +96,7 @@ test('online world integration', { timeout: 40000 }, async t => {
         const animalUpdates = [];
         const connection = new WorldConnection(url, {
             chunks: () => {}, animals: update => animalUpdates.push(update),
+            inventory: () => {}, groundItems: () => {},
             world: value => { world = value; }, players: value => { players = value; },
             correction: () => {},
             disconnected: reason => assert.fail(reason)

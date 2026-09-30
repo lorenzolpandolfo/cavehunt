@@ -1,6 +1,6 @@
 import { type MovementCommand } from '../../../../shared/src/movement.ts';
 import { Client, type Room } from '@colyseus/sdk';
-import { ROOM_NAME, PROTOCOL_VERSION, type InitialWorld, type PlayerSnapshot, type ChunkWindow, type AnimalUpdate, type PlayerCorrection, type InventoryEntry, type ItemUpdate } from '../../../../shared/src/protocol.ts';
+import { ROOM_NAME, PROTOCOL_VERSION, type InitialWorld, type PlayerSnapshot, type ChunkWindow, type AnimalUpdate, type PlayerCorrection, type InventoryEntry, type ItemUpdate, type DropItemCommand } from '../../../../shared/src/protocol.ts';
 
 interface NetworkState {
     players: Map<string, PlayerSnapshot>;
@@ -104,7 +104,10 @@ export class WorldConnection
     dropItem(entryId: string): void
     {
         if (!this.closed && this.initialReceived && this.room?.connection.isOpen)
-            this.room.send('item:drop', { entryId });
+        {
+            const command: DropItemCommand = { entryId };
+            this.room.send('item:drop', command);
+        }
     }
 
     close(): void

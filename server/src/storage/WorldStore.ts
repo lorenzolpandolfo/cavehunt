@@ -206,14 +206,14 @@ export class WorldStore
         return player.inventory.map(entry => ({ ...entry }));
     }
 
-    collectNearby(id: string, excluded: ReadonlySet<string> = new Set()): Promise<ItemTransfer | undefined>
+    collectNearby(id: string): Promise<ItemTransfer | undefined>
     {
         return this.enqueue(async () => {
             const player = Object.hasOwn(this.data.players, id) ? this.data.players[id] : undefined;
             if (!player) return undefined;
             for (const chunk of this.chunksFor(player))
             {
-                const item = chunk.items.find(candidate => !excluded.has(candidate.id) &&
+                const item = chunk.items.find(candidate => !(candidate.droppedBy === id && candidate.ownerMustLeave) &&
                     Math.hypot(candidate.x - player.x, candidate.y - player.y) <= PICKUP_RADIUS);
                 if (!item) continue;
                 const inventory = player.inventory.map(entry => ({ ...entry }));
@@ -228,6 +228,24 @@ export class WorldStore
             }
             return undefined;
         });
+    }
+
+    releaseOwnDrops(id: string): void
+    {
+        const player = Object.hasOwn(this.data.players, id) ? this.data.players[id] : undefined;
+        if (!player) return;
+        for (const chunk of this.chunksFor(player))
+        {
+            if (!chunk.items.some(item => item.droppedBy === id && item.ownerMustLeave &&
+                Math.hypot(item.x - player.x, item.y - player.y) > PICKUP_RADIUS)) continue;
+            const items = chunk.items.map(item => item.droppedBy === id && item.ownerMustLeave &&
+                Math.hypot(item.x - player.x, item.y - player.y) > PICKUP_RADIUS
+                ? { ...item, ownerMustLeave: false } : item);
+            const key = chunkKey(chunk.x, chunk.y);
+            this.data = { ...this.data, chunks: { ...this.data.chunks, [key]: { ...chunk, items } } };
+            this.revision++;
+            this.dirty = true;
+        }
     }
 
     dropItem(id: string, entryId: string): Promise<ItemTransfer | undefined>
@@ -245,7 +263,7 @@ export class WorldStore
             const chunk = this.data.chunks[key];
             const ground: GroundItem = {
                 id: entry.quantity === 1 ? entry.id : randomUUID(), itemId: entry.itemId,
-                quantity: 1, x: player.x, y: player.y
+                quantity: 1, x: player.x, y: player.y, droppedBy: id, ownerMustLeave: true
             };
             return this.commitItems(id, chunk, [...chunk.items, ground], inventory);
         });

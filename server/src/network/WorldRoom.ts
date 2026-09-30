@@ -8,7 +8,6 @@ import {
   type ChunkWindow,
   type PlayerCorrection,
   type ItemUpdate,
-  type DropItemCommand,
 } from "../../../shared/src/protocol.ts";
 import {
   SIMULATION_STEP_MS,
@@ -82,7 +81,6 @@ export function createWorldRoom(store: WorldStore, maxPlayers: number) {
     private readonly obstacles = new Map<string, Rectangle[]>();
     private readonly pendingAnimalChunks = new Set<string>();
     private readonly itemBusy = new Set<string>();
-    private readonly droppedByPlayer = new Map<string, Map<string, { x: number; y: number }>>();
     private elapsed = 0;
     private animalUpdateElapsed = 0;
     private suspended = false;
@@ -142,16 +140,9 @@ export function createWorldRoom(store: WorldStore, maxPlayers: number) {
         const id = this.sessions.get(client.sessionId);
         if (!id) return;
         this.itemBusy.add(client.sessionId);
-        void store.dropItem(id, (parsed.data as DropItemCommand).entryId)
+        void store.dropItem(id, parsed.data.entryId)
           .then(transfer => {
             if (!transfer) return;
-            const ground = transfer.update.items.at(-1);
-            if (ground)
-            {
-              let blocked = this.droppedByPlayer.get(id);
-              if (!blocked) { blocked = new Map(); this.droppedByPlayer.set(id, blocked); }
-              blocked.set(ground.id, { x: ground.x, y: ground.y });
-            }
             this.publishItems(id, transfer);
           })
           .catch(error => this.storageFailed(error))
@@ -221,7 +212,6 @@ export function createWorldRoom(store: WorldStore, maxPlayers: number) {
       this.loading.delete(client.sessionId);
       this.itemBusy.delete(client.sessionId);
       if (!id) return;
-      this.droppedByPlayer.delete(id);
       this.state.players.delete(id);
       try {
         await store.flush();
@@ -290,6 +280,7 @@ export function createWorldRoom(store: WorldStore, maxPlayers: number) {
         }
         player.lastProcessedSequence = command.sequence;
         store.updatePosition(player.id, next.x, next.y);
+        store.releaseOwnDrops(player.id);
         player.x = next.x;
         player.y = next.y;
         player.direction = next.direction;
@@ -310,13 +301,8 @@ export function createWorldRoom(store: WorldStore, maxPlayers: number) {
         const id = this.sessions.get(client.sessionId);
         const player = id ? this.state.players.get(id) : undefined;
         if (!id || !player || !this.windows.has(client.sessionId) || this.itemBusy.has(client.sessionId)) continue;
-        const blocked = this.droppedByPlayer.get(id);
-        if (blocked) {
-          for (const [groundId, position] of blocked)
-            if (Math.hypot(player.x - position.x, player.y - position.y) > 20) blocked.delete(groundId);
-        }
         this.itemBusy.add(client.sessionId);
-        void store.collectNearby(id, new Set(blocked?.keys()))
+        void store.collectNearby(id)
           .then(transfer => { if (transfer) this.publishItems(id, transfer); })
           .catch(error => this.storageFailed(error))
           .finally(() => this.itemBusy.delete(client.sessionId));

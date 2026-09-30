@@ -37,7 +37,7 @@ Each row is a focused delivery with an observable acceptance criterion. Dependen
 | ID | Delivery | Depends on | Acceptance |
 | --- | --- | --- | --- |
 | R1 | Target selection and basic tool interaction | F2, W5 | Player can select an in-range gathering target; distant targets are rejected. |
-| R2 | Minimal item definitions and inventory | F1 | Resources can be added and displayed with consistent stack counts. |
+| R2 | Minimal item definitions and inventory | F1 | Done: online test items can be collected, stacked according to definition, dropped, displayed and restored from JSON. Resource gathering remains R3. |
 | R3 | Gather wood and stone with depletion | R1, R2, W3 | Gathering adds resources; depleted objects stay depleted after chunk reload. |
 | R4 | Basic recipe crafting | R3 | Crafting consumes available ingredients and produces the defined output; insufficient ingredients prevent crafting. |
 
