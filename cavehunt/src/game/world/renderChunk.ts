@@ -3,8 +3,8 @@ import { CHUNK_PIXEL_SIZE, CHUNK_SIZE, type ChunkData, TILE_SIZE } from './chunk
 import { type WorldObject, type WorldObjectType } from './worldObjects.ts';
 import { OBJECT_FRAMES } from './objectFrames.ts';
 import { getSurface } from './surface.ts';
+import { shoreTileIndex } from './shore.ts';
 
-const GRASS_TILE_INDEX = 12;
 const GRASS_TILE_COUNT = 77;
 const WATER_TILE_INDEX = GRASS_TILE_COUNT;
 const TERRAIN_DEPTH = -1000000;
@@ -18,23 +18,9 @@ export interface RenderedChunk {
     decorations: Phaser.GameObjects.Image[];
 }
 
-function shoreTileIndex(chunk: ChunkData, tileX: number, tileY: number): number
+function groundTileIndex(chunk: ChunkData, tileX: number, tileY: number): number
 {
-    const water = (x: number, y: number) => getSurface(chunk.config, x, y) === 'water';
-    const top = water(tileX, tileY - 1);
-    const bottom = water(tileX, tileY + 1);
-    const left = water(tileX - 1, tileY);
-    const right = water(tileX + 1, tileY);
-
-    if (top && left) return 0;
-    if (top && right) return 2;
-    if (bottom && left) return 22;
-    if (bottom && right) return 24;
-    if (top) return 1;
-    if (bottom) return 23;
-    if (left) return 11;
-    if (right) return 13;
-    return GRASS_TILE_INDEX;
+    return shoreTileIndex((offsetX, offsetY) => getSurface(chunk.config, tileX + offsetX, tileY + offsetY) === 'water');
 }
 
 function frameName(object: WorldObject): string
@@ -92,9 +78,8 @@ export function renderChunk(scene: Scene, player: Phaser.Physics.Arcade.Sprite, 
         throw new Error('World layers could not be created');
     }
 
-    ground.setDepth(TERRAIN_DEPTH);
-    water.setDepth(TERRAIN_DEPTH + 1);
-    ground.fill(GRASS_TILE_INDEX);
+    water.setDepth(TERRAIN_DEPTH);
+    ground.setDepth(TERRAIN_DEPTH + 1);
 
     for (let y = 0; y < CHUNK_SIZE; y++)
     {
@@ -103,12 +88,11 @@ export function renderChunk(scene: Scene, player: Phaser.Physics.Arcade.Sprite, 
             const tile = chunk.tiles[y][x];
             const worldX = chunk.x * CHUNK_SIZE + x;
             const worldY = chunk.y * CHUNK_SIZE + y;
-            const groundTile = ground.putTileAt(tile.surface === 'ground' ? shoreTileIndex(chunk, worldX, worldY) : GRASS_TILE_INDEX, x, y);
-            groundTile.tint = groundTint(tile.forestBlend);
+            water.putTileAt(WATER_TILE_INDEX, x, y).tint = 0x90d6df;
 
-            if (tile.surface === 'water')
+            if (tile.surface === 'ground')
             {
-                water.putTileAt(WATER_TILE_INDEX, x, y).tint = 0x90d6df;
+                ground.putTileAt(groundTileIndex(chunk, worldX, worldY), x, y).tint = groundTint(tile.forestBlend);
             }
         }
     }

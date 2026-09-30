@@ -30,6 +30,7 @@ Planned features in the design and roadmap are not evidence of implementation.
 - Consider future integration without building future systems prematurely.
 - Do not implement additional roadmap tasks unless requested.
 - Do not reorganize unrelated code or clean up the template opportunistically.
+- Never create image assets. If a change needs an image absent from `cavehunt/public/assets/`, tell the user which asset is needed.
 
 ## Read context when relevant
 
