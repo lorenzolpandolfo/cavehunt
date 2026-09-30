@@ -3,7 +3,7 @@ import { Player } from '../player/Player';
 import { PlayerInput } from '../player/PlayerInput';
 import { LocalPrediction } from '../player/LocalPrediction';
 import { ChunkManager } from '../world/ChunkManager';
-import { destroyRenderedChunk, renderChunk, setRenderedItems, type RenderedChunk } from '../world/renderChunk';
+import { animateRenderedItems, destroyRenderedChunk, renderChunk, setRenderedItems, type RenderedChunk } from '../world/renderChunk';
 import { AnimalDisplay } from '../world/AnimalDisplay';
 import { WorldConnection } from '../network/WorldConnection';
 import { serverEndpoint } from '../network/serverEndpoint';
@@ -19,6 +19,8 @@ interface LoadedChunk {
 }
 
 const CAMERA_FOLLOW_LERP = 0.1;
+const RECENT_SERVERS_KEY = 'cavehunt.recentServers';
+const RECENT_SERVERS_LIMIT = 5;
 export class Game extends Scene
 {
     private readonly players = new Map<string, Player>();
@@ -53,14 +55,17 @@ export class Game extends Scene
         });
     }
 
-    update(_time: number, deltaMs: number): void
+    update(time: number, deltaMs: number): void
     {
         const local = this.ownId ? this.players.get(this.ownId) : undefined;
         if (local && this.controls && this.prediction)
             local.renderLocal(this.prediction.advance(deltaMs, this.controls.current()));
         for (const [id, player] of this.players)
             if (id !== this.ownId || !this.prediction) player.render(deltaMs);
-        this.chunks?.forEachLoaded(chunk => chunk.animals.render(deltaMs));
+        this.chunks?.forEachLoaded(chunk => {
+            chunk.animals.render(deltaMs);
+            animateRenderedItems(chunk.rendered, time);
+        });
     }
 
     private showLogin(message = 'Enter a nickname to join the world.'): void
@@ -92,10 +97,29 @@ export class Game extends Scene
         serverInput.value = this.serverAddress;
         serverInput.placeholder = 'localhost:2567';
         serverLabel.htmlFor = serverInput.id;
+        const recentServers = this.readRecentServers();
+        const history = document.createElement('div');
+        history.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
+        if (recentServers.length)
+        {
+            const heading = document.createElement('small');
+            heading.textContent = 'Recent servers';
+            for (const address of recentServers)
+            {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = address;
+                button.style.cssText = 'font:12px sans-serif;max-width:100%;overflow:hidden;text-overflow:ellipsis';
+                button.onclick = () => { serverInput.value = address; serverInput.focus(); };
+                history.append(button);
+            }
+            form.append(heading, history);
+        }
         const submit = document.createElement('button');
         submit.type = 'submit';
         submit.textContent = 'Connect';
-        form.append(title, status, label, input, serverLabel, serverInput, submit);
+        form.prepend(title, status, label, input, serverLabel, serverInput);
+        form.append(submit);
         form.onsubmit = event => {
             event.preventDefault();
             const nickname = input.value.trim();
@@ -118,7 +142,10 @@ export class Game extends Scene
             submit.disabled = true;
             status.textContent = 'Connecting and loading the world…';
             this.connection = new WorldConnection(endpoint, {
-                world: world => this.loadWorld(world),
+                world: world => {
+                    this.saveRecentServer(address);
+                    this.loadWorld(world);
+                },
                 players: players => this.updatePlayers(players),
                 correction: correction => this.prediction?.correct(correction),
                 chunks: window => this.applyChunks(window.chunks),
@@ -136,6 +163,34 @@ export class Game extends Scene
         document.body.append(form);
         this.form = form;
         input.focus();
+    }
+
+    private readRecentServers(): string[]
+    {
+        try
+        {
+            const stored: unknown = JSON.parse(localStorage.getItem(RECENT_SERVERS_KEY) ?? '[]');
+            return Array.isArray(stored)
+                ? stored.filter((address): address is string => typeof address === 'string' && !!serverEndpoint(address)).slice(0, RECENT_SERVERS_LIMIT)
+                : [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private saveRecentServer(address: string): void
+    {
+        try
+        {
+            const recent = [address, ...this.readRecentServers().filter(previous => previous !== address)].slice(0, RECENT_SERVERS_LIMIT);
+            localStorage.setItem(RECENT_SERVERS_KEY, JSON.stringify(recent));
+        }
+        catch
+        {
+            return;
+        }
     }
 
     private loadWorld(world: InitialWorld): void

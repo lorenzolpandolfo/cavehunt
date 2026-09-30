@@ -15,11 +15,18 @@ const WATER_TILE_INDEX = GRASS_TILE_COUNT;
 const TERRAIN_DEPTH = -1000000;
 const PLAIN_COLOR = 0xffffff;
 const FOREST_COLOR = 0xb6d6a0;
+const ITEM_FLOAT_AMPLITUDE = 3;
+const ITEM_FLOAT_PERIOD_MS = 1600;
+
+interface RenderedItem {
+  image: Phaser.GameObjects.Image;
+  groundY: number;
+}
 
 export interface RenderedChunk {
   tilemap: Phaser.Tilemaps.Tilemap;
   decorations: Phaser.GameObjects.Image[];
-  items: Map<string, Phaser.GameObjects.Image>;
+  items: Map<string, RenderedItem>;
 }
 
 function groundTileIndex(
@@ -61,15 +68,20 @@ function ensureObjectFrames(scene: Scene): void {
 
 export function setRenderedItems(scene: Scene, rendered: RenderedChunk, items: readonly GroundItem[]): void {
   const present = new Set(items.map(item => item.id));
-  for (const [id, image] of rendered.items) {
-    if (!present.has(id)) { image.destroy(); rendered.items.delete(id); }
+  for (const [id, item] of rendered.items) {
+    if (!present.has(id)) { item.image.destroy(); rendered.items.delete(id); }
   }
   for (const item of items) {
     if (rendered.items.has(item.id)) continue;
     const image = scene.add.image(item.x, item.y, ITEMS[item.itemId].texture.key, `item-${item.itemId}`);
     image.setOrigin(0.5, 1).setDepth(item.y + 1);
-    rendered.items.set(item.id, image);
+    rendered.items.set(item.id, { image, groundY: item.y });
   }
+}
+
+export function animateRenderedItems(rendered: RenderedChunk, timeMs: number): void {
+  const offsetY = Math.sin(timeMs * 2 * Math.PI / ITEM_FLOAT_PERIOD_MS) * ITEM_FLOAT_AMPLITUDE;
+  for (const item of rendered.items.values()) item.image.y = item.groundY + offsetY;
 }
 
 function groundTint(blend: number): number {
@@ -174,7 +186,7 @@ export function destroyRenderedChunk(chunk: RenderedChunk): void {
   for (const decoration of chunk.decorations) {
     decoration.destroy();
   }
-  for (const item of chunk.items.values()) item.destroy();
+  for (const item of chunk.items.values()) item.image.destroy();
   chunk.items.clear();
 
   chunk.tilemap.destroy();
