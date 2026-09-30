@@ -1,6 +1,7 @@
 import { Scene } from 'phaser';
 import { type PlayerSnapshot } from '../../../../shared/src/protocol.ts';
 import { PLAYER_FEET_OFFSET, SIMULATION_STEP_MS, type Direction } from '../../../../shared/src/movement.ts';
+import { type MovingPlayer } from '../../../../shared/src/playerMovement.ts';
 
 const DIRECTION_ROW: Record<Direction, number> = { down: 0, up: 1, left: 2, right: 3 };
 
@@ -29,8 +30,10 @@ export class Player
         this.render(0);
     }
 
-    update(player: PlayerSnapshot): void
+    update(player: PlayerSnapshot, local = false): void
     {
+        this.label.setText(player.nickname);
+        if (local) return;
         if (player.x !== this.targetX || player.y !== this.targetY)
         {
             this.fromX = this.sprite.x;
@@ -39,13 +42,7 @@ export class Player
             this.targetY = player.y;
             this.elapsed = 0;
         }
-        this.label.setText(player.nickname);
-        if (player.moving) this.sprite.anims.play(`walk-${player.direction}`, true);
-        else
-        {
-            this.sprite.anims.stop();
-            this.sprite.setFrame(DIRECTION_ROW[player.direction] * 4);
-        }
+        this.animate(player);
     }
 
     render(deltaMs: number): void
@@ -58,10 +55,27 @@ export class Player
         this.label.setPosition(x, y - 24).setDepth(y + 1);
     }
 
+    renderLocal(player: MovingPlayer): void
+    {
+        this.sprite.setPosition(player.x, player.y + PLAYER_FEET_OFFSET).setDepth(player.y);
+        this.label.setPosition(player.x, player.y - 24).setDepth(player.y + 1);
+        this.animate(player);
+    }
+
     destroy(): void
     {
         this.sprite.destroy();
         this.label.destroy();
+    }
+
+    private animate(player: Pick<MovingPlayer, 'moving' | 'direction'>): void
+    {
+        if (player.moving) this.sprite.anims.play(`walk-${player.direction}`, true);
+        else
+        {
+            this.sprite.anims.stop();
+            this.sprite.setFrame(DIRECTION_ROW[player.direction] * 4);
+        }
     }
 
     private registerAnimations(scene: Scene): void

@@ -1,19 +1,17 @@
-import { INPUT_HEARTBEAT_MS, SIMULATION_STEP_MS, idleMovement, type MovementIntent } from '../../../../shared/src/movement.ts';
+import { idleMovement, type MovementIntent } from '../../../../shared/src/movement.ts';
 
 const CONTROL_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'ShiftLeft', 'ShiftRight']);
 
 export class PlayerInput
 {
     private readonly held = new Set<string>();
-    private elapsed = INPUT_HEARTBEAT_MS;
-    private last = '';
-    private readonly send: (input: MovementIntent) => void;
+    private readonly onStop: () => void;
     private readonly target: Window;
     private readonly visibility: Document;
 
-    constructor(send: (input: MovementIntent) => void, target: Window = window, visibility: Document = document)
+    constructor(onStop: () => void, target: Window = window, visibility: Document = document)
     {
-        this.send = send;
+        this.onStop = onStop;
         this.target = target;
         this.visibility = visibility;
         target.addEventListener('keydown', this.onKeyDown);
@@ -23,23 +21,16 @@ export class PlayerInput
         visibility.addEventListener('visibilitychange', this.onVisibility);
     }
 
-    update(deltaMs: number): void
+    current(): MovementIntent
     {
-        this.elapsed += deltaMs;
-        const input: MovementIntent = {
+        if (this.visibility.hidden) return idleMovement();
+        return {
             left: this.held.has('KeyA') || this.held.has('ArrowLeft'),
             right: this.held.has('KeyD') || this.held.has('ArrowRight'),
             up: this.held.has('KeyW') || this.held.has('ArrowUp'),
             down: this.held.has('KeyS') || this.held.has('ArrowDown'),
             boost: this.held.has('ShiftLeft') || this.held.has('ShiftRight')
         };
-        const key = JSON.stringify(input);
-        if (this.elapsed >= SIMULATION_STEP_MS && (key !== this.last || this.elapsed >= INPUT_HEARTBEAT_MS))
-        {
-            this.send(input);
-            this.last = key;
-            this.elapsed = 0;
-        }
     }
 
     destroy(): void
@@ -74,9 +65,6 @@ export class PlayerInput
     private readonly stop = (): void =>
     {
         this.held.clear();
-        const input = idleMovement();
-        this.send(input);
-        this.last = JSON.stringify(input);
-        this.elapsed = 0;
+        this.onStop();
     };
 }

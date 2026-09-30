@@ -23,8 +23,6 @@ export function calculateVelocity(input: MovementInput, speed: number, result: V
 }
 
 export const SIMULATION_STEP_MS = 50;
-export const INPUT_TIMEOUT_MS = 500;
-export const INPUT_HEARTBEAT_MS = 100;
 export const PLAYER_SPEED = 80;
 export const DEBUG_SPEED_MULTIPLIER = 3;
 export const PLAYER_BODY_WIDTH = 12;
@@ -39,6 +37,9 @@ export interface MovementIntent extends MovementInput {
 
 export interface MovementCommand extends MovementIntent {
     sequence: number;
+    epoch: number;
+    x: number;
+    y: number;
 }
 
 export function idleMovement(): MovementIntent

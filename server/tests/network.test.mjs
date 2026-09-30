@@ -9,6 +9,8 @@ import { matchMaker } from '@colyseus/core';
 import { startServer } from '../src/server.ts';
 import { PROTOCOL_VERSION, ROOM_NAME } from '../../shared/src/protocol.ts';
 import { pixelToChunk } from '../../shared/src/coordinates.ts';
+import { movePlayer, objectRectangle } from '../../shared/src/playerMovement.ts';
+import { idleMovement } from '../../shared/src/movement.ts';
 import { WorldConnection } from '../../cavehunt/src/game/network/WorldConnection.ts';
 
 async function until(condition) {
@@ -95,6 +97,7 @@ test('online world integration', { timeout: 40000 }, async t => {
         const connection = new WorldConnection(url, {
             chunks: () => {}, animals: update => animalUpdates.push(update),
             world: value => { world = value; }, players: value => { players = value; },
+            correction: () => {},
             disconnected: reason => assert.fail(reason)
         });
         await connection.connect('David');
@@ -107,31 +110,56 @@ test('online world integration', { timeout: 40000 }, async t => {
         await until(() => !alice.room.state.players.has('david'));
     });
 
-    await t.test('server movement is shared, stops with stale input and streams the new chunk window', async () => {
+    await t.test('validated client positions reach peers and invalid positions trigger corrections', async () => {
         let chunkWindow;
         let observerWindows = 0;
-        const remove = alice.room.onMessage('world:chunks', message => { chunkWindow = message; });
+        let obstacles = aliceChunks.flatMap(chunk => chunk.objects.flatMap(object => {
+            const rectangle = objectRectangle(object);
+            return rectangle ? [rectangle] : [];
+        }));
+        const remove = alice.room.onMessage('world:chunks', message => {
+            chunkWindow = message;
+            obstacles = message.chunks.flatMap(chunk => chunk.objects.flatMap(object => {
+                const rectangle = objectRectangle(object);
+                return rectangle ? [rectangle] : [];
+            }));
+        });
         const removeObserver = bobby.room.onMessage('world:chunks', () => observerWindows++);
         const startX = alicePosition.x;
         const startY = alicePosition.y;
-        const input = { left: startX >= 0, right: startX < 0, up: false, down: false, boost: true, sequence: 1 };
-        alice.room.send('player:input', { ...input, x: 999999 });
-        await delay(100);
+        const input = { left: startX >= 0, right: startX < 0, up: false, down: false, boost: true };
+        let correction;
+        const removeCorrection = alice.room.onMessage('player:correction', message => { correction = message; });
+        alice.room.send('player:input', { ...input, x: 999999, y: startY, epoch: 0, sequence: 1 });
+        await until(() => correction?.epoch === 1);
         assert.equal(alice.room.state.players.get('alice').x, alicePosition.x);
-        alice.room.send('player:input', input);
-        await until(() => pixelToChunk(alice.room.state.players.get('alice').x) !== pixelToChunk(startX) && chunkWindow);
-        alice.room.send('player:input', { ...input, left: false, right: false, sequence: 2 });
+        let sequence = 2;
+        let reported = { ...alice.room.state.players.get('alice') };
+        const sendStep = intent => {
+            reported = movePlayer(reported, intent, 50, obstacles);
+            alice.room.send('player:input', { ...intent, x: reported.x, y: reported.y, epoch: 1, sequence: sequence++ });
+        };
+        const movement = setInterval(() => sendStep(input), 50);
+        try {
+            await until(() => pixelToChunk(alice.room.state.players.get('alice').x) !== pixelToChunk(startX) && chunkWindow);
+        } finally {
+            clearInterval(movement);
+        }
+        sendStep(idleMovement());
+        const stopSequence = sequence - 1;
         await until(() => !alice.room.state.players.get('alice').moving);
+        await until(() => alice.room.state.players.get('alice').lastProcessedSequence === stopSequence);
         const stopped = alice.room.state.players.get('alice').x;
-        alice.room.send('player:input', { ...input, sequence: 1 });
+        alice.room.send('player:input', { ...input, x: 999999, y: startY, epoch: 0, sequence: 1 });
         await delay(120);
         assert.equal(alice.room.state.players.get('alice').x, stopped);
         await until(() => bobby.room.state.players.get('alice').x === stopped);
+        assert.equal(bobby.room.state.players.get('alice').lastProcessedSequence, stopSequence);
         assert.equal(chunkWindow.chunks.length, 9);
         assert.deepEqual(chunkWindow.chunks.map(chunk => `${chunk.x},${chunk.y}`).sort(),
             [-1, 0, 1].flatMap(y => [-1, 0, 1].map(x => `${pixelToChunk(stopped) + x},${pixelToChunk(startY) + y}`)).sort());
         assert.equal(observerWindows, 0);
-        alice.room.send('player:input', { ...input, left: false, right: false, down: true, boost: false, sequence: 3 });
+        sendStep({ ...idleMovement(), down: true });
         await until(() => alice.room.state.players.get('alice').moving);
         await until(() => !alice.room.state.players.get('alice').moving);
         const position = alice.room.state.players.get('alice');
@@ -140,6 +168,7 @@ test('online world integration', { timeout: 40000 }, async t => {
         aliceChunks = chunkWindow.chunks;
         remove();
         removeObserver();
+        removeCorrection();
     });
 
     await t.test('socket loss removes presence and releases the nickname', async () => {

@@ -16,7 +16,7 @@
 | Server movement | Fixed-step player movement, input validation, collisions and one animal simulation per active chunk. |
 | Colyseus adapter | Reserve nicknames, manage global presence, replicate movement and send relevant chunk windows and animal updates. |
 | Shared contracts | Protocol/version, metadata, serializable state, coordinate conversions and common geometry. |
-| Client presentation | Connection UI, collect movement intent, interpolate received player/animal positions, animate sprites and release Phaser resources. |
+| Client presentation | Connection UI, move the local player, handle rejected positions, interpolate remote players/animals, animate sprites and release Phaser resources. |
 
 Keep persistent domain data separate from Colyseus Schema instances and Phaser objects. Use plain serializable state. Add gameplay systems for concrete implemented features, without mandatory ECS or speculative frameworks.
 
@@ -24,12 +24,12 @@ Admission reserves a normalized nickname before asynchronous persistence. Existi
 
 ## Movement and interest
 
-- Clients send directional booleans, the Shift debug flag and a monotonic sequence. Never accept client positions, speed or elapsed time.
-- The server advances at 20 Hz with 50 ms fixed steps, capped catch-up and normalized diagonals. Normal speed is 80 pixels/second; Shift requests the existing triple-speed debug behavior. Input expires after 500 ms without refresh.
+- Clients send directional booleans, the Shift debug flag, their resulting position, a monotonic sequence and a correction epoch for each 50 ms movement step. The server validates the reported position against its own movement and collision simulation before accepting it.
+- The server processes queued player reports at 20 Hz with 50 ms steps and capped catch-up. Normal speed is 80 pixels/second; Shift requests the existing triple-speed debug behavior. Invalid positions clear the queue and receive an explicit correction with a new epoch.
 - World obstacles use shared foot-aligned bodies and swept axis collision resolution. Water and decorative objects remain traversable. Player-player and animal-player collisions are not implemented.
-- Clients send changed input at most every 50 ms, refresh held input every 100 ms and send stop on blur/hidden tab. Characters interpolate authoritative positions over 50 ms without prediction or local physics.
-- Global presence and player positions go to every client. Each client receives a 3 by 3 chunk window centered on the authoritative position. Crossing a boundary updates only that client's window. New chunks must be persisted before movement enters their window; the character waits while this completes.
-- The network protocol is version 3. Incompatible clients are rejected. Disconnects return to the entry form without automatic reconnect or offline fallback.
+- The client owns its local position using shared collision rules and loaded chunks, sends one position per 50 ms step and eases the local sprite toward its partial-step pose each frame. Regular server snapshots update remote characters only. Explicit corrections adjust the local player, smoothing small differences. Blur/hidden tab sends an immediate stop.
+- Global presence and validated player positions go to every client. Each client receives a 3 by 3 chunk window centered on the validated position. Crossing a boundary updates only that client's window. New chunks must be persisted before the server accepts movement into their window; the local player can move through loaded chunks while the server catches up.
+- The network protocol is version 5. Incompatible clients are rejected. Disconnects return to the entry form without automatic reconnect or offline fallback.
 
 ## Deterministic generation
 

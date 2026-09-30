@@ -1,6 +1,6 @@
-import { type MovementIntent } from '../../../../shared/src/movement.ts';
+import { type MovementCommand } from '../../../../shared/src/movement.ts';
 import { Client, type Room } from '@colyseus/sdk';
-import { ROOM_NAME, PROTOCOL_VERSION, type InitialWorld, type PlayerSnapshot, type ChunkWindow, type AnimalUpdate } from '../../../../shared/src/protocol.ts';
+import { ROOM_NAME, PROTOCOL_VERSION, type InitialWorld, type PlayerSnapshot, type ChunkWindow, type AnimalUpdate, type PlayerCorrection } from '../../../../shared/src/protocol.ts';
 
 interface NetworkState {
     players: Map<string, PlayerSnapshot>;
@@ -13,6 +13,7 @@ export interface WorldConnectionEvents {
     chunks: (window: ChunkWindow) => void;
     animals: (update: AnimalUpdate) => void;
     players: (players: readonly PlayerSnapshot[]) => void;
+    correction: (correction: PlayerCorrection) => void;
     disconnected: (message: string) => void;
 }
 
@@ -23,7 +24,6 @@ export class WorldConnection
     private timeout?: ReturnType<typeof setTimeout>;
     private readonly dispose: (() => void)[] = [];
     private initialReceived = false;
-    private sequence = 0;
     private readonly endpoint: string;
     private readonly events: WorldConnectionEvents;
 
@@ -73,6 +73,9 @@ export class WorldConnection
             this.dispose.push(room.onMessage<AnimalUpdate>('world:animals', update => {
                 if (this.initialReceived && !this.closed) this.events.animals(update);
             }));
+            this.dispose.push(room.onMessage<PlayerCorrection>('player:correction', correction => {
+                if (this.initialReceived && !this.closed) this.events.correction(correction);
+            }));
             this.dispose.push(room.onMessage<string>('world:error', message => this.fail(message)));
             room.send('world:request');
         }
@@ -82,11 +85,11 @@ export class WorldConnection
         }
     }
 
-    sendMovement(input: MovementIntent): void
+    sendMovement(input: MovementCommand): void
     {
         if (!this.closed && this.initialReceived && this.room?.connection.isOpen)
         {
-            this.room.send('player:input', { ...input, sequence: this.sequence++ });
+            this.room.send('player:input', input);
         }
     }
 
