@@ -5,6 +5,8 @@ import {
   TILE_SIZE,
 } from "../../../../shared/src/coordinates.ts";
 import { type ChunkSnapshot, type WorldObject, type WorldObjectType } from "../../../../shared/src/protocol.ts";
+import { type GroundItem } from "../../../../shared/src/protocol.ts";
+import { ITEMS } from "../../../../shared/src/items.ts";
 import { OBJECT_FRAMES } from "./objectFrames.ts";
 import { shoreTileIndex } from "./shore.ts";
 
@@ -17,6 +19,7 @@ const FOREST_COLOR = 0xb6d6a0;
 export interface RenderedChunk {
   tilemap: Phaser.Tilemaps.Tilemap;
   decorations: Phaser.GameObjects.Image[];
+  items: Map<string, Phaser.GameObjects.Image>;
 }
 
 function groundTileIndex(
@@ -46,6 +49,26 @@ function ensureObjectFrames(scene: Scene): void {
         texture.add(name, 0, frame.x, frame.y, frame.width, frame.height);
       }
     }
+  }
+  for (const definition of Object.values(ITEMS)) {
+    const frame = `item-${definition.id}`;
+    if (!texture.has(frame)) {
+      const { x, y, width, height } = definition.texture;
+      texture.add(frame, 0, x, y, width, height);
+    }
+  }
+}
+
+export function setRenderedItems(scene: Scene, rendered: RenderedChunk, items: readonly GroundItem[]): void {
+  const present = new Set(items.map(item => item.id));
+  for (const [id, image] of rendered.items) {
+    if (!present.has(id)) { image.destroy(); rendered.items.delete(id); }
+  }
+  for (const item of items) {
+    if (rendered.items.has(item.id)) continue;
+    const image = scene.add.image(item.x, item.y, ITEMS[item.itemId].texture.key, `item-${item.itemId}`);
+    image.setOrigin(0.5, 1).setDepth(item.y + 1);
+    rendered.items.set(item.id, image);
   }
 }
 
@@ -137,10 +160,13 @@ export function renderChunk(
     decorations.push(image);
   }
 
-  return {
+  const rendered: RenderedChunk = {
     tilemap,
     decorations,
+    items: new Map(),
   };
+  setRenderedItems(scene, rendered, chunk.items);
+  return rendered;
 }
 
 export function destroyRenderedChunk(chunk: RenderedChunk): void {
@@ -148,6 +174,8 @@ export function destroyRenderedChunk(chunk: RenderedChunk): void {
   for (const decoration of chunk.decorations) {
     decoration.destroy();
   }
+  for (const item of chunk.items.values()) item.destroy();
+  chunk.items.clear();
 
   chunk.tilemap.destroy();
 }

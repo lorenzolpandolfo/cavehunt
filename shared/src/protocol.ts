@@ -1,6 +1,7 @@
 import { type Direction } from './movement.ts';
+import { type ItemId } from './items.ts';
 
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 export const ROOM_NAME = 'world';
 export const NICKNAME_PATTERN = /^[A-Za-z0-9_-]{3,24}$/;
 
@@ -56,6 +57,28 @@ export interface ChunkData {
 export interface ChunkSnapshot extends ChunkData {
     surfaces: Surface[][];
     animals: AnimalState[];
+    items: GroundItem[];
+}
+
+export interface InventoryEntry {
+    id: string;
+    itemId: ItemId;
+    quantity: number;
+}
+
+export interface GroundItem extends InventoryEntry {
+    x: number;
+    y: number;
+}
+
+export interface ItemUpdate {
+    x: number;
+    y: number;
+    items: GroundItem[];
+}
+
+export interface DropItemCommand {
+    entryId: string;
 }
 
 export interface PlayerData {
@@ -63,6 +86,7 @@ export interface PlayerData {
     nickname: string;
     x: number;
     y: number;
+    inventory: InventoryEntry[];
 }
 
 export interface WorldMetadata extends WorldConfig {
@@ -74,6 +98,7 @@ export interface InitialWorld {
     metadata: WorldMetadata;
     playerId: string;
     chunks: ChunkSnapshot[];
+    inventory: InventoryEntry[];
 }
 
 export interface JoinOptions {

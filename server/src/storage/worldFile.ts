@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import { CHUNK_SIZE, chunkKey, pixelToChunk } from '../../../shared/src/coordinates.ts';
 import { NICKNAME_PATTERN } from '../../../shared/src/protocol.ts';
+import { ITEM_IDS, ITEMS } from '../../../shared/src/items.ts';
 import { GENERATOR_VERSION } from '../world/worldConfig.ts';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 const coordinate = z.number().finite();
 const integer = z.number().int().safe();
 const surface = z.enum(['ground', 'water']);
@@ -23,15 +24,20 @@ const animal = z.object({
     phase: z.enum(['idle', 'walk']), direction: z.number().int().min(0).max(3),
     remainingMs: z.number().finite(), decisionIndex: z.number().int().nonnegative()
 }).strict();
+const itemId = z.enum(ITEM_IDS as [typeof ITEM_IDS[number], ...typeof ITEM_IDS[number][]]);
+const inventoryEntry = z.object({
+    id: z.string().min(1), itemId, quantity: z.number().int().positive().safe()
+}).strict().refine(entry => ITEMS[entry.itemId].stackable || entry.quantity === 1);
+const groundItem = inventoryEntry.safeExtend({ x: coordinate, y: coordinate });
 const chunk = z.object({
     x: integer, y: integer, config,
     tiles: z.array(z.array(tile).length(CHUNK_SIZE)).length(CHUNK_SIZE),
     surfaces: z.array(z.array(surface).length(CHUNK_SIZE + 2)).length(CHUNK_SIZE + 2),
-    objects: z.array(object), animals: z.array(animal)
+    objects: z.array(object), animals: z.array(animal), items: z.array(groundItem)
 }).strict();
 const player = z.object({
     id: z.string().regex(NICKNAME_PATTERN), nickname: z.string().regex(NICKNAME_PATTERN),
-    x: coordinate, y: coordinate
+    x: coordinate, y: coordinate, inventory: z.array(inventoryEntry)
 }).strict();
 
 function recordEntries(value: unknown): [string, unknown][] | null
@@ -62,10 +68,14 @@ export const worldFileSchema = z.object({
                 }
             }
         }
-        for (const entity of [...value.objects, ...value.animals])
+        for (const entity of [...value.objects, ...value.animals, ...value.items])
         {
             if (ids.has(entity.id)) invalid('Duplicate entity identity');
             ids.add(entity.id);
+        }
+        for (const item of value.items)
+        {
+            if (chunkKey(pixelToChunk(item.x), pixelToChunk(item.y)) !== key) invalid('Ground item is outside its chunk');
         }
     }
     for (const [key, value] of Object.entries(world.players))
@@ -73,6 +83,17 @@ export const worldFileSchema = z.object({
         if (key !== value.id || key !== value.nickname.toLowerCase()) invalid('Invalid player identity');
         const center = chunkKey(pixelToChunk(value.x), pixelToChunk(value.y));
         if (!Object.hasOwn(world.chunks, center)) invalid('Player chunk is missing');
+        const stacked = new Set<string>();
+        for (const entry of value.inventory)
+        {
+            if (ids.has(entry.id)) invalid('Duplicate entity identity');
+            ids.add(entry.id);
+            if (ITEMS[entry.itemId].stackable)
+            {
+                if (stacked.has(entry.itemId)) invalid('Duplicate inventory stack');
+                stacked.add(entry.itemId);
+            }
+        }
     }
 });
 

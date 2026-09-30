@@ -4,6 +4,7 @@ import { PLAYER_FEET_OFFSET, SIMULATION_STEP_MS, type Direction } from '../../..
 import { type MovingPlayer } from '../../../../shared/src/playerMovement.ts';
 
 const DIRECTION_ROW: Record<Direction, number> = { down: 0, up: 1, left: 2, right: 3 };
+const NICKNAME_TEXT_RESOLUTION = 3;
 
 export class Player
 {
@@ -25,7 +26,7 @@ export class Player
         this.label = scene.add.text(player.x, player.y - 24, player.nickname, {
             fontFamily: 'sans-serif', fontSize: '8px', color: '#ffffff',
             backgroundColor: '#17351c', padding: { x: 2, y: 1 }
-        }).setOrigin(0.5, 1);
+        }).setResolution(NICKNAME_TEXT_RESOLUTION).setOrigin(0.5, 1);
         this.update(player);
         this.render(0);
     }

@@ -3,7 +3,8 @@ import { mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { type FileHandle } from 'node:fs/promises';
 import { CHUNK_SIZE, TILE_SIZE, chunkKey, pixelToChunk } from '../../../shared/src/coordinates.ts';
-import { type AnimalMotion, type AnimalUpdate, type ChunkSnapshot, type PlayerData, PROTOCOL_VERSION, type WorldMetadata } from '../../../shared/src/protocol.ts';
+import { type AnimalMotion, type AnimalUpdate, type ChunkSnapshot, type GroundItem, type InventoryEntry, type ItemUpdate, type PlayerData, PROTOCOL_VERSION, type WorldMetadata } from '../../../shared/src/protocol.ts';
+import { ITEM_IDS, ITEMS } from '../../../shared/src/items.ts';
 import { generateChunk } from '../world/chunk.ts';
 import { advanceAnimal, generateChunkAnimals } from '../world/animals.ts';
 import { getSurface } from '../world/surface.ts';
@@ -12,6 +13,8 @@ import { WORLD_CONFIG } from '../world/worldConfig.ts';
 import { SAVE_VERSION, worldFileSchema, type WorldFile } from './worldFile.ts';
 
 export type SaveWorld = (path: string, data: WorldFile) => Promise<void>;
+export interface ItemTransfer { inventory: InventoryEntry[]; update: ItemUpdate }
+const PICKUP_RADIUS = 20;
 
 export async function writeWorldAtomically(path: string, data: WorldFile): Promise<void>
 {
@@ -88,16 +91,28 @@ export class WorldStore
         return { ...this.data.config, worldId: this.data.worldId, protocolVersion: PROTOCOL_VERSION };
     }
 
-    preparePlayer(id: string, nickname: string, occupied: () => readonly PlayerData[]): Promise<PlayerData>
+    preparePlayer(id: string, nickname: string, occupied: () => readonly Pick<PlayerData, 'x' | 'y'>[]): Promise<PlayerData>
     {
         return this.enqueue(async () => {
             const saved = Object.hasOwn(this.data.players, id) ? this.data.players[id] : undefined;
-            const player = saved ?? { id, nickname, ...this.findSpawn(occupied()) };
+            const player = saved ?? { id, nickname, ...this.findSpawn(occupied()), inventory: [] };
             const chunks = { ...this.data.chunks };
             for (const position of this.window(player))
             {
                 const key = chunkKey(position.x, position.y);
                 if (!Object.hasOwn(chunks, key)) chunks[key] = this.generate(position.x, position.y);
+            }
+            if (!saved && Object.keys(this.data.players).length === 0)
+            {
+                const offsets = [{ x: 32, y: 0 }, { x: 0, y: 32 }, { x: -32, y: 0 }];
+                for (const [index, itemId] of ITEM_IDS.entries())
+                {
+                    const x = player.x + offsets[index].x;
+                    const y = player.y + offsets[index].y;
+                    const key = chunkKey(pixelToChunk(x), pixelToChunk(y));
+                    chunks[key] = { ...chunks[key], items: [...chunks[key].items,
+                        { id: randomUUID(), itemId, quantity: 1, x, y }] };
+                }
             }
             const next = { ...this.data, chunks, players: { ...this.data.players, [id]: player } };
             const revision = this.revision;
@@ -108,7 +123,7 @@ export class WorldStore
         });
     }
 
-    chunksFor(player: PlayerData): ChunkSnapshot[]
+    chunksFor(player: Pick<PlayerData, 'x' | 'y'>): ChunkSnapshot[]
     {
         return this.window(player).map(({ x, y }) => this.data.chunks[chunkKey(x, y)]);
     }
@@ -184,6 +199,74 @@ export class WorldStore
         this.dirty = true;
     }
 
+    inventoryFor(id: string): InventoryEntry[]
+    {
+        const player = Object.hasOwn(this.data.players, id) ? this.data.players[id] : undefined;
+        if (!player) throw new Error('Unknown character');
+        return player.inventory.map(entry => ({ ...entry }));
+    }
+
+    collectNearby(id: string, excluded: ReadonlySet<string> = new Set()): Promise<ItemTransfer | undefined>
+    {
+        return this.enqueue(async () => {
+            const player = Object.hasOwn(this.data.players, id) ? this.data.players[id] : undefined;
+            if (!player) return undefined;
+            for (const chunk of this.chunksFor(player))
+            {
+                const item = chunk.items.find(candidate => !excluded.has(candidate.id) &&
+                    Math.hypot(candidate.x - player.x, candidate.y - player.y) <= PICKUP_RADIUS);
+                if (!item) continue;
+                const inventory = player.inventory.map(entry => ({ ...entry }));
+                const stack = ITEMS[item.itemId].stackable ? inventory.find(entry => entry.itemId === item.itemId) : undefined;
+                if (stack)
+                {
+                    if (!Number.isSafeInteger(stack.quantity + item.quantity)) return undefined;
+                    stack.quantity += item.quantity;
+                }
+                else inventory.push({ id: item.id, itemId: item.itemId, quantity: item.quantity });
+                return this.commitItems(id, chunk, chunk.items.filter(candidate => candidate.id !== item.id), inventory);
+            }
+            return undefined;
+        });
+    }
+
+    dropItem(id: string, entryId: string): Promise<ItemTransfer | undefined>
+    {
+        return this.enqueue(async () => {
+            const player = Object.hasOwn(this.data.players, id) ? this.data.players[id] : undefined;
+            if (!player) return undefined;
+            const entry = player.inventory.find(candidate => candidate.id === entryId);
+            if (!entry) return undefined;
+            const inventory = player.inventory.map(candidate => ({ ...candidate }));
+            const index = inventory.findIndex(candidate => candidate.id === entryId);
+            if (entry.quantity === 1) inventory.splice(index, 1);
+            else inventory[index].quantity--;
+            const key = chunkKey(pixelToChunk(player.x), pixelToChunk(player.y));
+            const chunk = this.data.chunks[key];
+            const ground: GroundItem = {
+                id: entry.quantity === 1 ? entry.id : randomUUID(), itemId: entry.itemId,
+                quantity: 1, x: player.x, y: player.y
+            };
+            return this.commitItems(id, chunk, [...chunk.items, ground], inventory);
+        });
+    }
+
+    private async commitItems(id: string, chunk: ChunkSnapshot, items: GroundItem[], inventory: InventoryEntry[]): Promise<ItemTransfer>
+    {
+        const key = chunkKey(chunk.x, chunk.y);
+        const nextChunk = { ...chunk, items };
+        const nextPlayer = { ...this.data.players[id], inventory };
+        const next = { ...this.data, chunks: { ...this.data.chunks, [key]: nextChunk },
+            players: { ...this.data.players, [id]: nextPlayer } };
+        const revision = this.revision;
+        await this.save(this.path, next);
+        this.data = { ...this.data, chunks: { ...this.data.chunks, [key]: nextChunk },
+            players: { ...this.data.players, [id]: { ...this.data.players[id], inventory } } };
+        if (this.revision === revision) this.dirty = false;
+        return { inventory: inventory.map(entry => ({ ...entry })),
+            update: { x: chunk.x, y: chunk.y, items: items.map(item => ({ ...item })) } };
+    }
+
     flush(force = false): Promise<void>
     {
         return this.enqueue(() => this.saveCurrent(force));
@@ -236,10 +319,10 @@ export class WorldStore
         const surfaces = Array.from({ length: CHUNK_SIZE + 2 }, (_, row) =>
             Array.from({ length: CHUNK_SIZE + 2 }, (_, column) =>
                 getSurface(config, x * CHUNK_SIZE + column - 1, y * CHUNK_SIZE + row - 1)));
-        return { ...generateChunk(config, x, y), surfaces, animals: generateChunkAnimals(config, x, y) };
+        return { ...generateChunk(config, x, y), surfaces, animals: generateChunkAnimals(config, x, y), items: [] };
     }
 
-    private findSpawn(occupied: readonly PlayerData[]): { x: number; y: number }
+    private findSpawn(occupied: readonly Pick<PlayerData, 'x' | 'y'>[]): { x: number; y: number }
     {
         const objects = new Map<string, ReturnType<typeof generateChunkObjects>>();
         const spacing = TILE_SIZE * 2;

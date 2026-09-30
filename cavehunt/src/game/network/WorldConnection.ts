@@ -1,6 +1,6 @@
 import { type MovementCommand } from '../../../../shared/src/movement.ts';
 import { Client, type Room } from '@colyseus/sdk';
-import { ROOM_NAME, PROTOCOL_VERSION, type InitialWorld, type PlayerSnapshot, type ChunkWindow, type AnimalUpdate, type PlayerCorrection } from '../../../../shared/src/protocol.ts';
+import { ROOM_NAME, PROTOCOL_VERSION, type InitialWorld, type PlayerSnapshot, type ChunkWindow, type AnimalUpdate, type PlayerCorrection, type InventoryEntry, type ItemUpdate } from '../../../../shared/src/protocol.ts';
 
 interface NetworkState {
     players: Map<string, PlayerSnapshot>;
@@ -14,6 +14,8 @@ export interface WorldConnectionEvents {
     animals: (update: AnimalUpdate) => void;
     players: (players: readonly PlayerSnapshot[]) => void;
     correction: (correction: PlayerCorrection) => void;
+    inventory: (items: InventoryEntry[]) => void;
+    groundItems: (update: ItemUpdate) => void;
     disconnected: (message: string) => void;
 }
 
@@ -76,6 +78,12 @@ export class WorldConnection
             this.dispose.push(room.onMessage<PlayerCorrection>('player:correction', correction => {
                 if (this.initialReceived && !this.closed) this.events.correction(correction);
             }));
+            this.dispose.push(room.onMessage<InventoryEntry[]>('item:inventory', inventory => {
+                if (this.initialReceived && !this.closed) this.events.inventory(inventory);
+            }));
+            this.dispose.push(room.onMessage<ItemUpdate>('item:ground', update => {
+                if (this.initialReceived && !this.closed) this.events.groundItems(update);
+            }));
             this.dispose.push(room.onMessage<string>('world:error', message => this.fail(message)));
             room.send('world:request');
         }
@@ -91,6 +99,12 @@ export class WorldConnection
         {
             this.room.send('player:input', input);
         }
+    }
+
+    dropItem(entryId: string): void
+    {
+        if (!this.closed && this.initialReceived && this.room?.connection.isOpen)
+            this.room.send('item:drop', { entryId });
     }
 
     close(): void

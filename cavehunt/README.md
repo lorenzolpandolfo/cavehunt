@@ -2,7 +2,7 @@
 
 This Phaser client connects to the authoritative Colyseus server. It receives nearby map chunks, synchronized animals, global player presence and authoritative movement. Use WASD/arrows to move and Shift for triple debug speed; the server resolves collisions and the client interpolates received positions.
 
-Install dependencies from the repository root with `npm ci`; start the server with `npm run dev:server` there. In this directory use `npm run dev-nolog`, `npm test`, `npm run typecheck` and `npm run build-nolog`. Configure `VITE_SERVER_URL` in `.env` for a server other than `http://localhost:2567`.
+Install dependencies from the repository root with `npm ci`; start the server with `npm run dev:server` there. In this directory use `npm run dev-nolog`, `npm test`, `npm run typecheck` and `npm run build-nolog`. The connection form defaults to `localhost:2567`; enter another IP or host to connect elsewhere. An omitted port defaults to `2567`. Configure `VITE_SERVER_URL` in `.env` to change the form's initial address.
 
 See the [root README](../README.md) for server configuration, nickname identity and JSON persistence, and the [roadmap](../docs/roadmap.md) for subsequent milestones. Asset terms remain in [ASSET_CREDITS.md](public/assets/sprout-lands/ASSET_CREDITS.md).
 

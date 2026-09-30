@@ -7,6 +7,8 @@ import {
   type InitialWorld,
   type ChunkWindow,
   type PlayerCorrection,
+  type ItemUpdate,
+  type DropItemCommand,
 } from "../../../shared/src/protocol.ts";
 import {
   SIMULATION_STEP_MS,
@@ -15,6 +17,7 @@ import {
 } from "../../../shared/src/movement.ts";
 import { chunkKey, pixelToChunk } from "../../../shared/src/coordinates.ts";
 import { type WorldStore } from "../storage/WorldStore.ts";
+import { type ItemTransfer } from "../storage/WorldStore.ts";
 import {
   movePlayer,
   objectRectangle,
@@ -51,6 +54,7 @@ const movementCommand = z
     y: z.number().finite(),
   })
   .strict();
+const dropItemCommand = z.object({ entryId: z.string().min(1) }).strict();
 const AUTOSAVE_MS = 2000;
 const ANIMAL_UPDATE_MS = 100;
 const MAX_CATCHUP_MS = 250;
@@ -77,6 +81,8 @@ export function createWorldRoom(store: WorldStore, maxPlayers: number) {
     private readonly loading = new Set<string>();
     private readonly obstacles = new Map<string, Rectangle[]>();
     private readonly pendingAnimalChunks = new Set<string>();
+    private readonly itemBusy = new Set<string>();
+    private readonly droppedByPlayer = new Map<string, Map<string, { x: number; y: number }>>();
     private elapsed = 0;
     private animalUpdateElapsed = 0;
     private suspended = false;
@@ -101,6 +107,7 @@ export function createWorldRoom(store: WorldStore, maxPlayers: number) {
           metadata: store.metadata,
           playerId: player.id,
           chunks: store.chunksFor(player),
+          inventory: store.inventoryFor(player.id),
         };
         this.windows.set(client.sessionId, this.center(player));
         client.send("world:initial", message);
@@ -127,6 +134,28 @@ export function createWorldRoom(store: WorldStore, maxPlayers: number) {
           return;
         }
         pending.queue.push(parsed.data);
+      });
+      this.onMessage("item:drop", (client, raw: unknown) => {
+        if (this.suspended || !this.windows.has(client.sessionId) || this.itemBusy.has(client.sessionId)) return;
+        const parsed = dropItemCommand.safeParse(raw);
+        if (!parsed.success) return;
+        const id = this.sessions.get(client.sessionId);
+        if (!id) return;
+        this.itemBusy.add(client.sessionId);
+        void store.dropItem(id, (parsed.data as DropItemCommand).entryId)
+          .then(transfer => {
+            if (!transfer) return;
+            const ground = transfer.update.items.at(-1);
+            if (ground)
+            {
+              let blocked = this.droppedByPlayer.get(id);
+              if (!blocked) { blocked = new Map(); this.droppedByPlayer.set(id, blocked); }
+              blocked.set(ground.id, { x: ground.x, y: ground.y });
+            }
+            this.publishItems(id, transfer);
+          })
+          .catch(error => this.storageFailed(error))
+          .finally(() => this.itemBusy.delete(client.sessionId));
       });
       this.setSimulationInterval((deltaMs) => {
         this.elapsed += Math.min(deltaMs, MAX_CATCHUP_MS);
@@ -190,7 +219,9 @@ export function createWorldRoom(store: WorldStore, maxPlayers: number) {
       this.windows.delete(client.sessionId);
       this.movementInputs.delete(client.sessionId);
       this.loading.delete(client.sessionId);
+      this.itemBusy.delete(client.sessionId);
       if (!id) return;
+      this.droppedByPlayer.delete(id);
       this.state.players.delete(id);
       try {
         await store.flush();
@@ -270,7 +301,39 @@ export function createWorldRoom(store: WorldStore, maxPlayers: number) {
           this.windows.set(client.sessionId, center);
         }
       }
+      this.collectItems();
       this.advanceAnimals();
+    }
+
+    private collectItems(): void {
+      for (const client of this.clients) {
+        const id = this.sessions.get(client.sessionId);
+        const player = id ? this.state.players.get(id) : undefined;
+        if (!id || !player || !this.windows.has(client.sessionId) || this.itemBusy.has(client.sessionId)) continue;
+        const blocked = this.droppedByPlayer.get(id);
+        if (blocked) {
+          for (const [groundId, position] of blocked)
+            if (Math.hypot(player.x - position.x, player.y - position.y) > 20) blocked.delete(groundId);
+        }
+        this.itemBusy.add(client.sessionId);
+        void store.collectNearby(id, new Set(blocked?.keys()))
+          .then(transfer => { if (transfer) this.publishItems(id, transfer); })
+          .catch(error => this.storageFailed(error))
+          .finally(() => this.itemBusy.delete(client.sessionId));
+      }
+    }
+
+    private publishItems(id: string, transfer: ItemTransfer): void {
+      for (const client of this.clients) {
+        const recipient = this.sessions.get(client.sessionId);
+        const player = recipient ? this.state.players.get(recipient) : undefined;
+        if (!player || !this.windows.has(client.sessionId)) continue;
+        if (recipient === id) client.send('item:inventory', transfer.inventory);
+        const update: ItemUpdate = transfer.update;
+        if (Math.abs(pixelToChunk(player.x) - update.x) <= 1 &&
+            Math.abs(pixelToChunk(player.y) - update.y) <= 1)
+          client.send('item:ground', update);
+      }
     }
 
     private advanceAnimals(): void {
