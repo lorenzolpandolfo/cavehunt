@@ -7,7 +7,7 @@ Run application commands from the repository's `cavehunt/` subdirectory, where `
 | Check | Command | Purpose |
 | --- | --- | --- |
 | TypeScript | `./node_modules/.bin/tsc --noEmit` | Check source types without emitting files. |
-| Unit tests | `npm test` | Run deterministic Foundation checks with Node's built-in test runner. |
+| Unit tests | `npm test` | Run deterministic movement, biome, object, river, lake, coordinate, and chunk management checks with Node's built-in test runner. |
 | Production build | `npm run build-nolog` | Verify Vite bundling using the existing script without template telemetry. |
 
 There is currently no lint script. Vite builds do not replace the separate TypeScript check. Inspect the current scripts when working on a task, and run applicable existing tests.
@@ -28,8 +28,6 @@ Prioritize deterministic unit tests of pure gameplay rules, separate from Phaser
 Relevant examples, as the features arrive:
 
 - Movement calculations keep diagonal and cardinal speed equivalent.
-- Fixed seed, coordinates, and generation configuration produce identical terrain across repeated runs.
-- Generating chunks in different orders produces identical contents and consistent boundaries.
 - Cave generation is reproducible for the same cave identity and depth.
 - Gathering updates resources and inventory correctly, including depleted targets.
 - Saved state restores player modifications over the generated world without respawning collected resources.

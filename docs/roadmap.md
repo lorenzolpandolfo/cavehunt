@@ -1,6 +1,6 @@
 # Development Roadmap
 
-The Foundation tasks F1–F5 are implemented. All other tasks below are planned. The current application is described in [architecture](../.agents/architecture.md); gameplay intent lives in [game design](../.agents/game-design.md).
+The Foundation tasks F1–F5 and procedural world tasks W1–W6 are implemented. All other tasks below are planned. The current application is described in [architecture](../.agents/architecture.md); gameplay intent lives in [game design](../.agents/game-design.md).
 
 Each row is a focused delivery with an observable acceptance criterion. Dependencies refer to task IDs and are prerequisites, not permission to implement additional tasks. Implement only the requested scope. Mark completion only after implementation and applicable [validation](../.agents/testing.md).
 
@@ -8,7 +8,7 @@ Each row is a focused delivery with an observable acceptance criterion. Dependen
 
 - **First playable world:** F1–F5, W1–W5, W7, and R1–R3. Walk through a procedural forest, gather resources, and discover cave entrances; entering a generated cave is a later delivery.
 - **Initial MVP:** the first playable world plus S4 and P0a–P0c. Add a basic day/night cycle and save/load seed, player state, inventory, collected resources, and world time.
-- Rivers, crafting, hostile waves, and deeper systems can follow independently according to the dependencies below.
+- Crafting, hostile waves, and deeper systems can follow independently according to the dependencies below.
 
 ## 1. Foundation
 
@@ -22,15 +22,15 @@ Each row is a focused delivery with an observable acceptance criterion. Dependen
 
 ## 2. Procedural world
 
-| ID | Delivery | Depends on | Acceptance |
-| --- | --- | --- | --- |
-| W1 | Seeded terrain generation | F4 | Repeated generation with fixed inputs produces identical terrain data. |
-| W2 | World/chunk coordinate mapping and chunk generation | W1 | Positive and negative positions map consistently; generation order does not change contents. |
-| W3 | Chunk loading and unloading | W2, F3, F5 | Moving across boundaries loads nearby terrain with collisions and releases distant chunks. |
-| W4 | Initial forest and plain biome distribution | W2 | Both terrain types appear under reproducible distribution rules. |
-| W5 | Trees, rocks, and vegetation | W3, W4 | Seeded objects appear consistently with appropriate blocking behavior. |
-| W6 | Rivers and water terrain | W4, W3 | Water features remain continuous across chunk boundaries. |
-| W7 | Discoverable cave entrances | W5 | Valid, reproducible entrance locations are visible and reachable. |
+| ID | Delivery | Depends on | Acceptance | Status |
+| --- | --- | --- | --- | --- |
+| W1 | Seeded terrain generation | F4 | Repeated generation with fixed inputs produces identical terrain data. | Done |
+| W2 | World/chunk coordinate mapping and chunk generation | W1 | Positive and negative positions map consistently; generation order does not change contents. | Done |
+| W3 | Chunk loading and unloading | W2, F3, F5 | Moving across boundaries loads nearby terrain with collisions and releases distant chunks. | Done |
+| W4 | Initial forest and plain biome distribution | W2 | Both terrain types appear under reproducible distribution rules. | Done |
+| W5 | Trees, rocks, and vegetation | W3, W4 | Seeded objects appear consistently with appropriate blocking behavior. | Done |
+| W6 | Rivers and water terrain | W4, W3 | Water features remain continuous across chunk boundaries. | Done |
+| W7 | Discoverable cave entrances | W5 | Valid, reproducible entrance locations are visible and reachable. | Planned |
 
 ## 3. Resource collection
 

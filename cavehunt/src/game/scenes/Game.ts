@@ -1,13 +1,16 @@
 import { Scene } from 'phaser';
 import { Player } from '../player/Player';
-import { FOUNDATION_MAP, TILE_SIZE } from '../world/foundationMap';
-import { buildFoundationWorld } from '../world/buildFoundationWorld';
+import { TILE_SIZE } from '../world/chunk';
+import { ChunkManager } from '../world/ChunkManager';
+import { destroyRenderedChunk, renderChunk, type RenderedChunk } from '../world/renderChunk';
+import { WORLD_CONFIG } from '../world/terrain';
 
 const CAMERA_ZOOM = 3;
 
 export class Game extends Scene
 {
     private player?: Player;
+    private chunks?: ChunkManager<RenderedChunk>;
 
     constructor ()
     {
@@ -16,22 +19,25 @@ export class Game extends Scene
 
     create ()
     {
-        const world = buildFoundationWorld(this, FOUNDATION_MAP);
-        const spawn = FOUNDATION_MAP.spawn;
-
-        this.player = new Player(this, (spawn.x + 0.5) * TILE_SIZE, (spawn.y + 1) * TILE_SIZE);
-        this.physics.add.collider(this.player.sprite, world.walls);
-        this.physics.add.collider(this.player.sprite, world.obstacles);
-        this.physics.world.setBounds(0, 0, FOUNDATION_MAP.width * TILE_SIZE, FOUNDATION_MAP.height * TILE_SIZE);
-        this.player.sprite.setCollideWorldBounds(true);
+        const player = new Player(this, TILE_SIZE / 2, TILE_SIZE / 2);
+        this.player = player;
+        player.sprite.setVelocity(0, 0);
+        this.chunks = new ChunkManager(
+            WORLD_CONFIG,
+            chunk => renderChunk(this, player.sprite, chunk),
+            destroyRenderedChunk
+        );
+        this.chunks.update(player.sprite.x, player.sprite.y);
 
         const camera = this.cameras.main;
         camera.setZoom(CAMERA_ZOOM);
         camera.setRoundPixels(true);
-        camera.setBounds(0, 0, FOUNDATION_MAP.width * TILE_SIZE, FOUNDATION_MAP.height * TILE_SIZE);
-        camera.startFollow(this.player.sprite, true);
+        camera.removeBounds();
+        camera.startFollow(player.sprite, true);
 
         this.events.once('shutdown', () => {
+            this.chunks?.destroy();
+            this.chunks = undefined;
             this.player?.destroy();
             this.player = undefined;
         });
@@ -40,5 +46,9 @@ export class Game extends Scene
     update ()
     {
         this.player?.update();
+        if (this.player)
+        {
+            this.chunks?.update(this.player.sprite.x, this.player.sprite.y);
+        }
     }
 }

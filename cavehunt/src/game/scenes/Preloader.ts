@@ -12,8 +12,8 @@ export class Preloader extends Scene
         this.load.setPath('assets/sprout-lands');
         this.load.spritesheet('player', 'character.png', { frameWidth: 48, frameHeight: 48 });
         this.load.image('grass', 'grass.png');
-        this.load.image('fences', 'fences.png');
         this.load.image('biome-objects', 'biome-objects.png');
+        this.load.image('water', 'water.png');
     }
 
     create ()

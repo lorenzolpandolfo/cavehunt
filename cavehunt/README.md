@@ -1,8 +1,8 @@
 # Cavehunt
 
-The Foundation prototype currently has a fixed terrain map, an animated character, eight-direction movement, a following camera, and collisions. Run commands from this `cavehunt/` directory. The [project roadmap](../docs/roadmap.md) describes later gameplay milestones. Sprout Lands asset credits and terms are in [ASSET_CREDITS.md](public/assets/sprout-lands/ASSET_CREDITS.md).
+The game currently has a seeded, unbounded surface with forests, plains, trees, rocks, shrubs, flowers, and walkable rivers and lakes. Nearby chunks load as an animated character moves in eight directions with a following camera and obstacle collisions. Hold Shift for triple movement speed while debugging. Change `WORLD_SEED` in `src/game/world/worldConfig.ts` to generate a different world. Run commands from this `cavehunt/` directory. The [project roadmap](../docs/roadmap.md) describes later gameplay milestones. Sprout Lands asset credits and terms are in [ASSET_CREDITS.md](public/assets/sprout-lands/ASSET_CREDITS.md).
 
-Use `npm run dev-nolog` to play locally, `./node_modules/.bin/tsc --noEmit` to check types, `npm test` to run Foundation tests, and `npm run build-nolog` to build.
+Use `npm run dev-nolog` to play locally, `./node_modules/.bin/tsc --noEmit` to check types, `npm test` to run deterministic tests, and `npm run build-nolog` to build.
 
 ## Template reference
 

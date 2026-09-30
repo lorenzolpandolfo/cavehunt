@@ -2,8 +2,11 @@ import { Scene } from 'phaser';
 import { calculateVelocity, type MovementInput, type Velocity } from './movement';
 
 const PLAYER_SPEED = 80;
+const DEBUG_SPEED_MULTIPLIER = 3;
 const PLAYER_BODY_WIDTH = 12;
 const PLAYER_BODY_HEIGHT = 7;
+const PLAYER_FRAME_HEIGHT = 48;
+const PLAYER_BODY_BOTTOM_MARGIN = 14;
 const ANIMATION_RATE = 7;
 
 type Direction = 'down' | 'up' | 'left' | 'right';
@@ -21,6 +24,7 @@ export class Player
 
     private readonly keys: Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key>;
     private readonly cursors: Phaser.Types.Input.Keyboard.CursorKeys;
+    private readonly shift: Phaser.Input.Keyboard.Key;
     private readonly input: MovementInput = { left: false, right: false, up: false, down: false };
     private readonly velocity: Velocity = { x: 0, y: 0 };
     private direction: Direction = 'down';
@@ -34,14 +38,15 @@ export class Player
         }
 
         this.registerAnimations(scene);
-        this.sprite = scene.physics.add.sprite(x, y, 'player', DIRECTION_ROW.down * 4);
+        this.sprite = scene.physics.add.sprite(x, y + PLAYER_BODY_BOTTOM_MARGIN + PLAYER_BODY_HEIGHT / 2, 'player', DIRECTION_ROW.down * 4);
         this.sprite.setOrigin(0.5, 1);
         this.sprite.setBodySize(PLAYER_BODY_WIDTH, PLAYER_BODY_HEIGHT);
-        this.sprite.setOffset((48 - PLAYER_BODY_WIDTH) / 2, 48 - PLAYER_BODY_HEIGHT - 14);
+        this.sprite.setOffset((PLAYER_FRAME_HEIGHT - PLAYER_BODY_WIDTH) / 2, PLAYER_FRAME_HEIGHT - PLAYER_BODY_HEIGHT - PLAYER_BODY_BOTTOM_MARGIN);
         this.sprite.setDepth(y);
 
         this.keys = scene.input.keyboard.addKeys('W,A,S,D') as typeof this.keys;
         this.cursors = scene.input.keyboard.createCursorKeys();
+        this.shift = scene.input.keyboard.addKey('SHIFT');
         scene.input.keyboard.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'W', 'A', 'S', 'D']);
         window.addEventListener('blur', this.onBlur);
         window.addEventListener('focus', this.onFocus);
@@ -55,7 +60,8 @@ export class Player
         input.up = !this.blurred && (this.keys.W.isDown || this.cursors.up.isDown);
         input.down = !this.blurred && (this.keys.S.isDown || this.cursors.down.isDown);
 
-        const velocity = calculateVelocity(input, PLAYER_SPEED, this.velocity);
+        const speed = PLAYER_SPEED * (this.shift.isDown ? DEBUG_SPEED_MULTIPLIER : 1);
+        const velocity = calculateVelocity(input, speed, this.velocity);
         this.sprite.setVelocity(velocity.x, velocity.y);
 
         if (velocity.x !== 0 || velocity.y !== 0)

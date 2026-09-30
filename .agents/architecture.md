@@ -10,7 +10,7 @@ Paths in this section are relative to the repository root.
 - `cavehunt/src/game/scenes/` contains Boot, Preloader, and the active Game scene. MainMenu and GameOver remain as unused template files.
 - `cavehunt/public/assets/` holds assets served directly at runtime. The separate root `assets/` directory is not automatically served by Vite.
 - Vite configurations live in `cavehunt/vite/`. TypeScript uses strict mode with `strictPropertyInitialization` disabled.
-- The Foundation has a fixed terrain map, a controllable player, Arcade Physics collisions, and a following camera. Procedural generation, persistence, and networking have not been implemented.
+- The Foundation provides a controllable player, Arcade Physics collisions, and a following camera. The seeded, unbounded surface now has forest and plain regions, natural objects, and walkable rivers and lakes. Persistence and networking have not been implemented.
 
 ## Intended direction
 
@@ -31,6 +31,9 @@ Prefer reusable data definitions for items, resources, enemies, and recipes, wit
 
 ## Deterministic generation
 
+- `world/worldConfig.ts` defines the current generator version and seed. Pure biome, object, river, and lake generation lives in `world/terrain.ts`, `world/worldObjects.ts`, `world/river.ts`, and `world/lake.ts`, using salted coordinate hashes from `world/worldHash.ts`. `world/surface.ts` combines water features. `world/objectFrames.ts` maps generated object types to atlas frames and collision sizes.
+- `world/chunk.ts` owns global tile and chunk coordinates; `world/ChunkManager.ts` manages the nearby window independently of Phaser. `world/renderChunk.ts` creates and releases Phaser layers, sprites, and colliders.
+- Tiles are 16 pixels, chunks are 32 by 32 tiles, and the active window is 3 by 3 chunks. The spawn is the center of global tile (0, 0).
 - For a fixed generator version and configuration, the same seed must reconstruct the same initial world and caves.
 - Derive generation randomness from stable inputs such as seed, chunk coordinates, cave identity, and depth. Do not depend on wall-clock time or unseeded randomness.
 - Generate each chunk consistently regardless of visitation or loading order. Use stable spatial rules for features spanning chunk boundaries.
