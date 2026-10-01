@@ -23,6 +23,8 @@ export class AnimalDisplay
         for (const animal of animals)
         {
             const sprite = scene.add.sprite(animal.x, animal.y, animal.type, 0).setOrigin(0.5, 1).setDepth(animal.y);
+            sprite.setInteractive();
+            sprite.name = 'world-target';
             this.visible.set(animal.id, {
                 sprite, type: animal.type, fromX: animal.x, fromY: animal.y,
                 x: animal.x, y: animal.y, elapsed: ANIMAL_UPDATE_MS

@@ -74,7 +74,8 @@ export function setRenderedItems(scene: Scene, rendered: RenderedChunk, items: r
   for (const item of items) {
     if (rendered.items.has(item.id)) continue;
     const image = scene.add.image(item.x, item.y, ITEMS[item.itemId].texture.key, `item-${item.itemId}`);
-    image.setOrigin(0.5, 1).setDepth(item.y + 1);
+    image.setOrigin(0.5, 1).setDepth(item.y + 1).setInteractive();
+    image.name = 'ground-item';
     rendered.items.set(item.id, { image, groundY: item.y });
   }
 }
@@ -169,6 +170,8 @@ export function renderChunk(
     const image = scene.add.image(x, y, "biome-objects", frameName(object));
     image.setOrigin(0.5, 1);
     image.setDepth(frame.bodyWidth ? y : y - 1);
+    image.setInteractive();
+    image.name = 'world-target';
     decorations.push(image);
   }
 
